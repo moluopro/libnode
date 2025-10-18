@@ -58,8 +58,6 @@ jobs:
         if: runner.os != 'Windows'
         shell: bash
         run: |
-          export CXXFLAGS="$CXXFLAGS -Wno-enum-constexpr-conversion"
-          export CFLAGS="$CFLAGS -Wno-enum-constexpr-conversion"
           python -m scripts.build
 
       - name: Build (Windows)
