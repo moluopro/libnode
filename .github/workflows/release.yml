@@ -57,10 +57,18 @@ jobs:
       - name: Patch source code of Node.js
         run: python -m scripts.patch
 
-      - name: Build
+      # 非 Windows：保留 export
+      - name: Build (*nix)
+        if: runner.os != 'Windows'
+        shell: bash
         run: |
           export CXXFLAGS="$CXXFLAGS -Wno-enum-constexpr-conversion"
           export CFLAGS="$CFLAGS -Wno-enum-constexpr-conversion"
+          python -m scripts.build
+
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        run: |
           python -m scripts.build
 
       - name: Copy headers
