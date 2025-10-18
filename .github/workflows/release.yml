@@ -58,7 +58,10 @@ jobs:
         run: python -m scripts.patch
 
       - name: Build
-        run: python -m scripts.build
+        run: |
+          export CXXFLAGS="$CXXFLAGS -Wno-enum-constexpr-conversion"
+          export CFLAGS="$CFLAGS -Wno-enum-constexpr-conversion"
+          python -m scripts.build
 
       - name: Copy headers
         run: python -m scripts.headers
