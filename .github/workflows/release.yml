@@ -110,7 +110,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download artifacts
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4
+        with:
+          pattern: "*"
+          path: .
+          merge-multiple: true
       - name: Compute checksums
         run: |
           mkdir zips
