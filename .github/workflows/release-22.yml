@@ -54,16 +54,9 @@ jobs:
       - name: Download source code of Node.js
         run: python -m scripts.download
 
-      - name: Build (*nix)
-        if: runner.os != 'Windows'
-        shell: bash
+      - name: Build
         run: |
-          python -m scripts.build
-
-      - name: Build (Windows)
-        if: runner.os == 'Windows'
-        run: |
-          python -m scripts.build
+          python -m scripts22.build
 
       - name: Copy headers
         run: python -m scripts.headers
