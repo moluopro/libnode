@@ -68,7 +68,6 @@ jobs:
                                   --add Microsoft.VisualStudio.Component.Windows10SDK.19041 `
                                   --includeRecommended --quiet --norestart"
           choco install -y visualstudio2019-workload-vctools
-          refreshenv
 
       # （可选）确认找到了 VS2019 的 cl.exe
       - name: Verify MSVC 2019
