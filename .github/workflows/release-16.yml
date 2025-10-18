@@ -1,10 +1,10 @@
-name: Release
+name: Release 16
 
 on:
   workflow_dispatch:
     inputs:
       nodeVersion:
-        description: "Node.js version"
+        description: "Node.js v16.16.0"
         required: true
 
 env:
