@@ -14,11 +14,13 @@ configureArgvs = [ '--enable-static' ] + config.configFlags
 if sys.platform == 'win32':
     env = os.environ.copy()
     env['config_flags'] = ' '.join(configureArgvs)
+
+    args = ['cmd', '/c', 'vcbuild.bat']
+    if config.x86:
+        args.append('x86')
+    args.append('vs2019')
+    subprocess.check_call(args, env=env)
     
-    subprocess.check_call(
-        ['cmd', '/c', 'vcbuild.bat'] + (['x86'] if config.x86 else []),
-        env=env
-    )
 else:
     subprocess.check_call([ sys.executable, 'configure.py' ] + configureArgvs)
     subprocess.check_call(['make', '-j4'])

@@ -57,6 +57,27 @@ jobs:
       - name: Patch source code of Node.js
         run: python -m scripts.patch
 
+      - name: Install VS2019 Build Tools (C++ + Windows 10 SDK 19041)
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          choco install -y visualstudio2019buildtools `
+            --package-parameters "--add Microsoft.VisualStudio.Workload.VCTools `
+                                  --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
+                                  --add Microsoft.VisualStudio.Component.VC.CoreBuildTools `
+                                  --add Microsoft.VisualStudio.Component.Windows10SDK.19041 `
+                                  --includeRecommended --quiet --norestart"
+          choco install -y visualstudio2019-workload-vctools
+          refreshenv
+
+      # （可选）确认找到了 VS2019 的 cl.exe
+      - name: Verify MSVC 2019
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: |
+          "%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -products * -version [16.0,17.0) -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -find **\Hostx64\x64\cl.exe
+          where cl
+
       # 非 Windows：保留 export
       - name: Build (*nix)
         if: runner.os != 'Windows'
