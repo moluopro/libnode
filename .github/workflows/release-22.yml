@@ -91,15 +91,6 @@ jobs:
           pattern: "*"
           path: .
           merge-multiple: true
-      - name: Compute checksums
-        run: |
-          mkdir zips
-          mv ./*/*.zip ./zips
-          cd zips
-          echo '## SHA-1 Checksums' > ../release_notes.md
-          echo '```' >> ../release_notes.md
-          sha1sum --binary *.zip >> ../release_notes.md
-          echo '```' >> ../release_notes.md
       - name: Create release
         id: create_release
         uses: actions/create-release@v1
@@ -108,7 +99,7 @@ jobs:
         with:
           tag_name: ${{ env.LIBNODE_NODE_VERSION }}
           release_name: ${{ env.LIBNODE_NODE_VERSION }}
-          body_path: release_notes.md
+          body: "Automated build for ${{ env.LIBNODE_NODE_VERSION }}"
       - name: Upload release assets
         uses: csexton/release-asset-action@v2
         with:
