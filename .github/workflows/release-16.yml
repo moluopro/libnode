@@ -121,7 +121,7 @@ jobs:
           curl -fsSL -o "${TARBALL}" "${URL}"
           tar -xzf "${TARBALL}"
 
-          EXTRACT_DIR="node-${LIBNODE_NODE_VERSION#v}"
+          EXTRACT_DIR="node-${LIBNODE_NODE_VERSION}"
           test -d "${EXTRACT_DIR}/include" || { echo "Include directory not found at ${EXTRACT_DIR}/include"; exit 1; }
 
           (cd "${EXTRACT_DIR}" && zip -r ../header.zip include)
