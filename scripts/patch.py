@@ -5,4 +5,4 @@ import shutil
 
 os.chdir('node-{}'.format(config.nodeVersion))
 
-subprocess.check_call(['patch', '-p1', '-i', '../patch/node.patch'])
+subprocess.check_call(['patch', '-p1', '-i', '../patch/node16.patch'])
