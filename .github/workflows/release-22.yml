@@ -98,12 +98,19 @@ jobs:
           tar -xzf "${TARBALL}"
 
           EXTRACT_DIR="node-${LIBNODE_NODE_VERSION}"
-          test -d "${EXTRACT_DIR}/include" || { echo "Include directory not found at ${EXTRACT_DIR}/include"; exit 1; }
+          INCLUDE_NODE_DIR="${EXTRACT_DIR}/include/node"
 
-          (cd "${EXTRACT_DIR}" && zip -r ../header.zip include)
-          pwd
-          ls
-          echo "Created header.zip"
+          if [ ! -d "${INCLUDE_NODE_DIR}" ]; then
+            echo "Include directory not found at ${INCLUDE_NODE_DIR}"
+            exit 1
+          fi
+
+          (
+            cd "${INCLUDE_NODE_DIR}" || exit 1
+            zip -r ../../../headers.zip .
+          )
+
+          echo "Created headers.zip"
 
       - name: Create combined zip file
         run: |

@@ -2,7 +2,7 @@ assert __name__ == "__main__"
 
 import shutil
 import sys
-
+import os
 from . import config
 
 zipBasename = 'libnode-{}-{}-{}{}'.format(
@@ -12,6 +12,13 @@ zipBasename = 'libnode-{}-{}-{}{}'.format(
     config.zipBasenameSuffix
 )
 
-shutil.make_archive(zipBasename, 'zip', base_dir='libnode')
+source_dir = os.path.join('libnode', 'lib')
+
+shutil.make_archive(
+    zipBasename,
+    'zip',
+    root_dir=source_dir,
+    base_dir='.'
+)
 
 print(zipBasename + '.zip')
