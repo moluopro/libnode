@@ -8,8 +8,6 @@ import glob
 
 from . import config
 
-
-
 nodeSrcFolder = 'node-{}'.format(config.nodeVersion)
 resultFolder = 'libnode'
 

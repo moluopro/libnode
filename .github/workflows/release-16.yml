@@ -82,9 +82,6 @@ jobs:
         run: |
           python -m scripts.build
 
-      - name: Copy headers
-        run: python -m scripts.headers
-
       - uses: ilammy/msvc-dev-cmd@v1
       - name: Postprocess
         run: python -m scripts.postproc
@@ -115,9 +112,29 @@ jobs:
           pattern: "*"
           path: .
           merge-multiple: true
+
+      - name: Download Node headers
+        shell: bash
+        run: |
+          TARBALL="node-${LIBNODE_NODE_VERSION}-headers.tar.gz"
+          URL="https://nodejs.org/dist/${LIBNODE_NODE_VERSION}/${TARBALL}"
+
+          echo "Downloading: ${URL}"
+          curl -fsSL -o "${TARBALL}" "${URL}"
+          tar -xzf "${TARBALL}"
+
+          EXTRACT_DIR="node-${LIBNODE_NODE_VERSION#v}"
+          test -d "${EXTRACT_DIR}/include" || { echo "Include directory not found at ${EXTRACT_DIR}/include"; exit 1; }
+
+          (cd "${EXTRACT_DIR}" && zip -r ../header.zip include)
+          pwd
+          ls
+          echo "Created header.zip"
+
       - name: Create combined zip file
         run: |
           zip -r libnode.zip ./*.zip
+
       - name: Create release
         id: create_release
         uses: actions/create-release@v1
@@ -127,6 +144,7 @@ jobs:
           tag_name: ${{ env.LIBNODE_NODE_VERSION }}
           release_name: ${{ env.LIBNODE_NODE_VERSION }}
           body: "Automated build for ${{ env.LIBNODE_NODE_VERSION }}"
+
       - name: Upload release assets
         uses: csexton/release-asset-action@v2
         with:
