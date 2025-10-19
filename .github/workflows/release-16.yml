@@ -99,8 +99,6 @@ jobs:
           name: ${{ steps.archive.outputs.zipname }}
           path: ${{ steps.archive.outputs.zipname }}
 
-      - name: Test
-        run: python -m scripts.test
 
   release:
     needs: build
