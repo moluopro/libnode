@@ -107,14 +107,14 @@ jobs:
 
           (
             cd "${INCLUDE_NODE_DIR}" || exit 1
-            zip -r ../../../headers.zip .
+            zip -r ../../../include.zip .
           )
 
-          echo "Created headers.zip"
+          echo "Created include.zip"
 
       - name: Create combined zip file
         run: |
-          zip -r libnode.zip ./*.zip
+          zip -r "libnode_${LIBNODE_NODE_VERSION}_all.zip" ./*.zip
 
       - name: Create release
         id: create_release
