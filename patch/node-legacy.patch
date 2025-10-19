@@ -1,0 +1,35 @@
+--- a/node.gyp
++++ b/node.gyp
+@@ -363,6 +363,8 @@
+       ],
+ 
+       'sources': [
++        'src/node_embedding_api.cc',
++        'src/node_embedding_api.h',
+         'src/api/async_resource.cc',
+         'src/api/callback.cc',
+         'src/api/embed_helpers.cc',
+--- a/tools/install.py
++++ b/tools/install.py
+@@ -197,6 +197,7 @@ def headers(action):
+     'config.gypi',
+     'src/node.h',
+     'src/node_api.h',
++    'src/node_embedding_api.h',
+     'src/js_native_api.h',
+     'src/js_native_api_types.h',
+     'src/node_api_types.h',
+--- a/deps/v8/third_party/zlib/zutil.h
++++ b/deps/v8/third_party/zlib/zutil.h
+@@ -155,1 +155,3 @@
+-#        define fdopen(fd,mode) NULL /* No fdopen() */
++#        ifndef __APPLE__
++#          define fdopen(fd,mode) NULL /* No fdopen() */
++#        endif
+--- a/deps/zlib/zutil.h
++++ b/deps/zlib/zutil.h
+@@ -155,1 +155,3 @@
+-#        define fdopen(fd,mode) NULL /* No fdopen() */
++#        ifndef __APPLE__
++#          define fdopen(fd,mode) NULL /* No fdopen() */
++#        endif

@@ -80,7 +80,7 @@ jobs:
 
       - name: Test
         run: python -m scripts.test
-        
+
   release:
     needs: build
     runs-on: ubuntu-latest
