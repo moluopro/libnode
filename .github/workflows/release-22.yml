@@ -58,8 +58,8 @@ jobs:
         run: |
           python -m scripts22.build
 
-      - name: Copy headers
-        run: python -m scripts.headers
+      # - name: Copy headers
+      #   run: python -m scripts.headers
 
       - uses: ilammy/msvc-dev-cmd@v1
       - name: Postprocess
@@ -81,7 +81,7 @@ jobs:
       - name: Test
         run: python -m scripts.test
         
-  gh_release:
+  release:
     needs: build
     runs-on: ubuntu-latest
     steps:
@@ -91,6 +91,9 @@ jobs:
           pattern: "*"
           path: .
           merge-multiple: true
+      - name: Create combined zip file
+        run: |
+          zip -r libnode.zip ./*.zip
       - name: Create release
         id: create_release
         uses: actions/create-release@v1
