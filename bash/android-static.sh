@@ -34,7 +34,7 @@ git checkout $VERSION
 
 echo "=====[Building Node.js]====="
 
-cp bash/$WORKSPACE/android-configure-static ./
+cp $WORKSPACE/bash/android-configure-static ./
 ./android-configure-static ~/android-ndk-r21b $2 24
 make -j8
 
