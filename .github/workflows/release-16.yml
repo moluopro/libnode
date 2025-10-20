@@ -16,16 +16,14 @@ jobs:
       fail-fast: false
       matrix:
         os: [macos-15, windows-2022, ubuntu-22.04]
-        x86: [0, 1]
+        x64: [0, 1]
         small_icu: [0, 1]
         exclude:
-          - os: macos-15
-            x86: 1
           - os: ubuntu-22.04
-            x86: 1
+            x64: 0
     runs-on: ${{ matrix.os }}
     env:
-      LIBNODE_X86: ${{ matrix.x86 }}
+      LIBNODE_X64: ${{ matrix.x64 }}
       LIBNODE_SMALL_ICU: ${{ matrix.small_icu }}
     steps:
       - name: Checkout code
