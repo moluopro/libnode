@@ -6,11 +6,11 @@ mkdir test/build
 cd test/build
 
 cmake ..
-cmake --build .
+cmake --build . --config Release
 
-./Debug/simple "console.log(require('http').STATUS_CODES[418])"
-./Debug/simple "process.exit(12)"
-./Debug/simple "invalid javascript"
-./Debug/process_argv
+./Release/simple "console.log(require('http').STATUS_CODES[418])"
+./Release/simple "process.exit(12)"
+./Release/simple "invalid javascript"
+./Release/process_argv
 
 Pop-Location

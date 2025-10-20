@@ -8,7 +8,6 @@ from . import config
 
 os.chdir('node-{}'.format(config.nodeVersion))
 
-
 env = os.environ.copy()
 env['HEADERS_ONLY'] = '1'
 
