@@ -9,7 +9,7 @@ ARCH="$2"
 
 case $ARCH in
     arm)
-        OUTPUT="arm32"
+        OUTPUT="arm"
         ;;
     x86)
         OUTPUT="x86"
@@ -33,6 +33,10 @@ cd node
 git checkout $VERSION
 
 echo "=====[Building Node.js]====="
+
+export ANDROID_NDK_HOME="~/android-ndk-r21b"
+export ANDROID_NDK_ROOT="$ANDROID_NDK_HOME"
+export GYP_DEFINES="OS=android host_os=linux target_arch=$ARCH android_ndk_path=$ANDROID_NDK_HOME"
 
 cp $WORKSPACE/bash/android-configure-static ./
 bash ./android-configure-static ~/android-ndk-r21b $2 24
