@@ -30,8 +30,13 @@ elif sys.platform == 'darwin':
     for k in ('CFLAGS', 'CXXFLAGS', 'LDFLAGS'):
         env[k] = (env.get(k, '') + f' -arch {target_arch}').strip()
 
-    subprocess.check_call([sys.executable, 'configure.py'] + configureArgvs + [f'--dest-cpu={target_cpu}'], env=env)
-    subprocess.check_call(['make', '-j4'], env=env)
+    if target_cpu == 'x64':
+        subprocess.check_call(['arch', '-x86_64', sys.executable, 'configure.py']
+                              + configureArgvs + [f'--dest-cpu={target_cpu}'], env=env)
+        subprocess.check_call(['arch', '-x86_64', 'make', '-j4'], env=env)
+    else:
+        subprocess.check_call([sys.executable, 'configure.py'] + configureArgvs + [f'--dest-cpu={target_cpu}'], env=env)
+        subprocess.check_call(['make', '-j4'], env=env)
 
 else:
     subprocess.check_call([ sys.executable, 'configure.py' ] + configureArgvs)

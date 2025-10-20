@@ -41,9 +41,13 @@ jobs:
         run: choco install -y patch
         if: runner.os == 'Windows'
 
-      - name: Install ninja on macOS
-        run: HOMEBREW_NO_AUTO_UPDATE=1 brew install ninja
+      - name: Install Rosetta (when x64) and ninja on macOS
         if: runner.os == 'macOS'
+        run: |
+          if [ "${{ matrix.x64 }}" = "1" ] && [[ "$(uname -m)" == "arm64" ]]; then
+            sudo softwareupdate --install-rosetta --agree-to-license || true
+          fi
+          HOMEBREW_NO_AUTO_UPDATE=1 brew install ninja
 
       - name: Install ninja on Ubuntu
         run: sudo apt-get install -y ninja-build
