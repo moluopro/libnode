@@ -12,6 +12,7 @@ env:
 
 jobs:
   build:
+    if: false
     strategy:
       fail-fast: false
       matrix:
@@ -77,9 +78,28 @@ jobs:
           name: ${{ steps.archive.outputs.zipname }}
           path: ${{ steps.archive.outputs.zipname }}
 
+  build-android-arm54:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install NDK
+        run: |
+          cd ~
+          wget -O NDK -q https://dl.google.com/android/repository/android-ndk-r21b-linux-x86_64.zip
+          sudo apt install unzip -y
+          unzip -q NDK
+      - name: Build
+        run: |
+          cd $GITHUB_WORKSPACE
+          bash ./bash/android-static.sh "${LIBNODE_NODE_VERSION}" arm64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: libnode-${{ env.LIBNODE_NODE_VERSION }}-android-arm64.zip
+          path: ~/libnode-Android/arm64/
 
   release:
-    needs: build
+    if: false
+    needs: [build, build-android-arm54]
     runs-on: ubuntu-latest
     steps:
       - name: Download artifacts
