@@ -30,7 +30,6 @@ cd $HOMEPATH
 git clone https://github.com/nodejs/node
 
 cd node
-git fetch origin $VERSION
 git checkout $VERSION
 
 echo "=====[Building Node.js]====="
