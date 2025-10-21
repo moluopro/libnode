@@ -48,10 +48,10 @@ export CXX=$TOOLCHAIN/bin/$SUFFIX-clang++
 export CC_host=$CC_host$HOST_M32
 export CXX_host=$CXX_host$HOST_M32
 
-GYP_DEFINES="target_arch=$ARCH"
+GYP_DEFINES="target_arch=$ARCH GYP_CROSSCOMPILE=1"
 GYP_DEFINES+=" v8_target_arch=$ARCH"
 GYP_DEFINES+=" android_target_arch=$ARCH"
-GYP_DEFINES+=" host_os=linux"
+GYP_DEFINES+=" host_os=linux host_arch=x64"
 GYP_DEFINES+=" android_ndk_path=$NDK_PATH"
 GYP_DEFINES+=" v8_use_snapshot=0 v8_enable_webassembly_trap_handler=0"
 export GYP_DEFINES
