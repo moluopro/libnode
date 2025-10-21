@@ -51,7 +51,7 @@ export CXX_host=$CXX_host$HOST_M32
 GYP_DEFINES="target_arch=$ARCH"
 GYP_DEFINES+=" v8_target_arch=$ARCH"
 GYP_DEFINES+=" android_target_arch=$ARCH"
-GYP_DEFINES+=" host_os=linux OS=android"
+GYP_DEFINES+=" host_os=linux"
 GYP_DEFINES+=" android_ndk_path=$NDK_PATH"
 export GYP_DEFINES
 
