@@ -52,6 +52,7 @@ GYP_DEFINES="target_arch=$ARCH"
 GYP_DEFINES+=" v8_target_arch=$ARCH"
 GYP_DEFINES+=" android_target_arch=$ARCH"
 GYP_DEFINES+=" host_os=$HOST_OS android_ndk_path=$NDK_PATH"
+GYP_DEFINES+=" v8_enable_webassembly_trap_handler=0"
 export GYP_DEFINES
 
 ./configure \
