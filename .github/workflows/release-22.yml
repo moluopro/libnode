@@ -78,7 +78,7 @@ jobs:
           name: ${{ steps.archive.outputs.zipname }}
           path: ${{ steps.archive.outputs.zipname }}
 
-  build-android-arm54:
+  build-android-arm64:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v2
@@ -98,7 +98,7 @@ jobs:
 
   release:
     if: false
-    needs: [build, build-android-arm54]
+    needs: [build, build-android-arm64]
     runs-on: ubuntu-latest
     steps:
       - name: Download artifacts
