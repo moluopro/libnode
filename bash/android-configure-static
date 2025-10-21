@@ -72,4 +72,5 @@ export GYP_DEFINES
     --dest-cpu=$DEST_CPU \
     --dest-os=android \
     --enable-static \
+    --openssl-no-asm \
     --cross-compiling
