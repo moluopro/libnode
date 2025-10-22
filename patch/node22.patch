@@ -1,8 +1,16 @@
---- a/deps/v8/src/base/debug/stack_trace_posix.cc
-+++ b/deps/v8/src/base/debug/stack_trace_posix.cc
-@@ -375,1 +375,4 @@
--  count_ = static_cast<size_t>(backtrace(trace_, arraysize(trace_)));
-+// Android: backtrace() / backtrace_symbols() are only available in API 33+
-+#if !defined(__ANDROID__) || (__ANDROID_API__ >= 33)
-+  count_ = static_cast<size_t>(backtrace(trace_, arraysize(trace_)));
+--- a/deps/v8/src/base/debug/stack_trace.cc
++++ b/deps/v8/src/base/debug/stack_trace.cc
+@@ -12,1 +12,12 @@
+-#include "src/base/macros.h"
++#include "src/base/macros.h"
++#if defined(__ANDROID__) && defined(__ANDROID_API__) && (__ANDROID_API__ < 33)
++extern "C" {
++  int backtrace(void** /*buffer*/, int /*size*/) {
++    return 0;
++  }
++  char** backtrace_symbols(void* const* /*buffer*/, int /*size*/) {
++    return nullptr;
++  }
++}
++# define V8_ANDROID_NO_EXECINFO 1
 +#endif
