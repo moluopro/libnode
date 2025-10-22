@@ -36,8 +36,6 @@ echo "=====[Building Node.js]====="
 
 ls $HOME/android-ndk-r27d/toolchains/llvm/prebuilt/linux-x86_64/bin/clang
 
-echo "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
-
 git apply $WORKSPACE/patch/node22.patch --ignore-whitespace --unidiff-zero
 
 bash ./android-configure "$HOME/android-ndk-r27d" 24 arm64
@@ -45,6 +43,10 @@ bash ./android-configure "$HOME/android-ndk-r27d" 24 arm64
 make -j8
 
 mkdir -p ../libnode-Android/$OUTPUT/
+
+echo "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+tree out/Release/obj.target/
+echo "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
 
 cp \
   out/Release/obj.target/deps/histogram/libhistogram.a \
