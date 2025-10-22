@@ -17,6 +17,7 @@ git checkout $VERSION
 echo "=====[Building Node.js]====="
 
 cp $WORKSPACE/android/android_configure.py .
+cp $WORKSPACE/android/trap-handler.h.patch ./android-patches/
 
 bash ./android-configure patch
 bash ./android-configure "$HOME/android-ndk-r27d" 24 arm64
