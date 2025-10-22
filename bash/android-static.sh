@@ -38,6 +38,10 @@ ls $HOME/android-ndk-r27d/toolchains/llvm/prebuilt/linux-x86_64/bin/clang
 
 git apply $WORKSPACE/patch/node22.patch --ignore-whitespace --unidiff-zero
 
+cp $WORKSPACE/bash/android_configure.py .
+
+cat ./android_configure.py
+
 bash ./android-configure "$HOME/android-ndk-r27d" 24 arm64
 
 make -j8
