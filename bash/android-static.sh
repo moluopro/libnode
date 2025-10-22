@@ -42,6 +42,10 @@ cp $WORKSPACE/bash/android_configure.py .
 
 cat ./android_configure.py
 
+sudo apt update
+sudo apt install dos2unix -y
+dos2unix ./android-patches/trap-handler.h.patch
+
 bash ./android-configure patch
 bash ./android-configure "$HOME/android-ndk-r27d" 24 arm64
 
