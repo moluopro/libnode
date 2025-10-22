@@ -34,8 +34,12 @@ git checkout $VERSION
 
 echo "=====[Building Node.js]====="
 
-cp $WORKSPACE/bash/android-configure-static ./
-bash ./android-configure-static ~/android-ndk-r27d $2 24
+ls $HOME/android-ndk-r27d/toolchains/llvm/prebuilt/linux-x86_64/bin/clang
+
+echo "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+
+bash ./android-configure "$HOME/android-ndk-r27d" 24 arm64
+
 make -j8
 
 mkdir -p ../libnode-Android/$OUTPUT/
