@@ -38,7 +38,7 @@ ls $HOME/android-ndk-r27d/toolchains/llvm/prebuilt/linux-x86_64/bin/clang
 
 echo "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
 
-git apply patch/node22.patch
+git apply $WORKSPACE/patch/node22.patch
 
 bash ./android-configure "$HOME/android-ndk-r27d" 24 arm64
 
