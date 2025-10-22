@@ -42,6 +42,7 @@ cp $WORKSPACE/bash/android_configure.py .
 
 cat ./android_configure.py
 
+bash ./android-configure patch
 bash ./android-configure "$HOME/android-ndk-r27d" 24 arm64
 
 make -j8
