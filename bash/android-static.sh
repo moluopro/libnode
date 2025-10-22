@@ -45,7 +45,7 @@ make -j8
 mkdir -p ../libnode-Android/$OUTPUT/
 
 echo "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
-tree out/Release/obj.target/
+tree -P '*.a' out/Release/obj.target/
 echo "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
 
 cp \
