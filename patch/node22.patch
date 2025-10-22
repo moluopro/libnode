@@ -1,5 +1,5 @@
---- deps/v8/src/base/debug/stack_trace_posix.cc
-+++ deps/v8/src/base/debug/stack_trace_posix.cc
+--- a/deps/v8/src/base/debug/stack_trace_posix.cc
++++ b/deps/v8/src/base/debug/stack_trace_posix.cc
 @@ -375,1 +375,4 @@
 -  count_ = static_cast<size_t>(backtrace(trace_, arraysize(trace_)));
 +// Android: backtrace() / backtrace_symbols() are only available in API 33+
