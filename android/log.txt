@@ -1,0 +1,62 @@
+└── obj.target
+        ├── deps
+        │   ├── ada
+        │   │   └── libada.a
+        │   ├── brotli
+        │   │   └── libbrotli.a
+        │   ├── cares
+        │   │   └── libcares.a
+        │   ├── googletest
+        │   │   ├── libgtest.a
+        │   │   └── libgtest_main.a
+        │   ├── histogram
+        │   │   └── libhistogram.a
+        │   ├── inspector_protocol
+        │   │   └── libcrdtp.a
+        │   ├── llhttp
+        │   │   └── libllhttp.a
+        │   ├── nbytes
+        │   │   └── libnbytes.a
+        │   ├── ncrypto
+        │   │   └── libncrypto.a
+        │   ├── nghttp2
+        │   │   └── libnghttp2.a
+        │   ├── openssl
+        │   │   └── libopenssl.a
+        │   ├── simdjson
+        │   │   └── libsimdjson.a
+        │   ├── simdutf
+        │   │   └── libsimdutf.a
+        │   ├── sqlite
+        │   │   └── libsqlite.a
+        │   ├── uv
+        │   │   └── libuv.a
+        │   ├── uvwasi
+        │   │   └── libuvwasi.a
+        │   ├── zlib
+        │   │   ├── libandroid_cpufeatures.a
+        │   │   ├── libzlib.a
+        │   │   ├── libzlib_adler32_simd.a
+        │   │   ├── libzlib_arm_crc32.a
+        │   │   └── libzlib_data_chunk_simd.a
+        │   └── zstd
+        │       └── libzstd.a
+        ├── libnode.a
+        └── tools
+            ├── icu
+            │   ├── libicudata.a
+            │   ├── libicui18n.a
+            │   └── libicuucx.a
+            └── v8_gypfiles
+                ├── libabseil.a
+                ├── libtorque_base.a
+                ├── libv8_base_without_compiler.a
+                ├── libv8_compiler.a
+                ├── libv8_init.a
+                ├── libv8_initializers.a
+                ├── libv8_initializers_slow.a
+                ├── libv8_libbase.a
+                ├── libv8_libplatform.a
+                ├── libv8_snapshot.a
+                ├── libv8_turboshaft.a
+                └── libv8_zlib.a

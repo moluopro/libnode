@@ -90,11 +90,11 @@ jobs:
       - name: Build
         run: |
           cd $GITHUB_WORKSPACE
-          bash ./bash/android-static.sh "${LIBNODE_NODE_VERSION}" arm64
+          bash ./android/android-static.sh "${LIBNODE_NODE_VERSION}" arm64
       - uses: actions/upload-artifact@v4
         with:
           name: libnode-${{ env.LIBNODE_NODE_VERSION }}-android-arm64.zip
-          path: ~/libnode-Android/arm64/
+          path: ~/libnode
 
   release:
     if: false

@@ -7,7 +7,7 @@ def patch_android():
     print("- Patches List -")
     print("[1] [deps/v8/src/trap-handler/trap-handler.h] related to https://github.com/nodejs/node/issues/36287")
     if platform.system() == "Linux":
-        os.system('patch -f ./deps/v8/src/trap-handler/trap-handler.h < ./android-patches/trap-handler.h.patch')
+        os.system('patch -p1 < ./android-patches/trap-handler.h.patch')
     print("\033[92mInfo: \033[0m" + "Tried to patch.")
 
 if platform.system() != "Linux" and platform.system() != "Darwin":
@@ -60,14 +60,13 @@ if platform.system() == "Darwin":
 
 elif platform.system() == "Linux":
     host_os = "linux"
+    os.environ['CC_host'] = "gcc"
+    os.environ['CXX_host'] = "g++"
     toolchain_path = android_ndk_path + "/toolchains/llvm/prebuilt/linux-x86_64"
 
 os.environ['PATH'] += os.pathsep + toolchain_path + "/bin"
 os.environ['CC'] = toolchain_path + "/bin/" + TOOLCHAIN_PREFIX + android_sdk_version + "-" +  "clang"
 os.environ['CXX'] = toolchain_path + "/bin/" + TOOLCHAIN_PREFIX + android_sdk_version + "-" + "clang++"
-
-os.environ['CC_host'] = "gcc"
-os.environ['CXX_host'] = "g++"
 
 GYP_DEFINES = "target_arch=" + arch
 GYP_DEFINES += " v8_target_arch=" + arch
