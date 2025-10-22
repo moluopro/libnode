@@ -1,3 +1,4 @@
+diff --git a/deps/v8/src/base/debug/stack_trace_posix.cc b/deps/v8/src/base/debug/stack_trace_posix.cc
 --- a/deps/v8/src/base/debug/stack_trace_posix.cc
 +++ b/deps/v8/src/base/debug/stack_trace_posix.cc
 @@ -375,1 +375,4 @@
