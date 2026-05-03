@@ -131,20 +131,30 @@ jobs:
           cp -R build-artifacts/build-ios build/ios
           cp -R build-artifacts/build-android build/android
 
-      - name: Create zip packages
-        run: |
-          mkdir -p dist
-          for system_dir in build/*; do
-            if [ -d "${system_dir}" ]; then
-              system_name="$(basename "${system_dir}")"
-              (cd build && zip -qry "../dist/libnode-${system_name}.zip" "${system_name}")
-            fi
-          done
-          (cd build && zip -qry "../dist/libnode-all.zip" .)
-
-      - name: Upload zip packages
+      - name: Upload macOS package
         uses: actions/upload-artifact@v4
         with:
-          name: libnode-zips
-          path: dist/*.zip
+          name: libnode-macos
+          path: build/macos
+          if-no-files-found: error
+
+      - name: Upload iOS package
+        uses: actions/upload-artifact@v4
+        with:
+          name: libnode-ios
+          path: build/ios
+          if-no-files-found: error
+
+      - name: Upload Android package
+        uses: actions/upload-artifact@v4
+        with:
+          name: libnode-android
+          path: build/android
+          if-no-files-found: error
+
+      - name: Upload all-platforms package
+        uses: actions/upload-artifact@v4
+        with:
+          name: libnode-all
+          path: build
           if-no-files-found: error
