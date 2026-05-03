@@ -1,0 +1,150 @@
+name: Build libnode
+
+on:
+  workflow_dispatch:
+
+env:
+  PRIVATE_SOURCE_REPOSITORY: moluopro/nodejs
+  NODE_BRANCH: v24.x
+  MACOSX_DEPLOYMENT_TARGET: "11.15"
+  IOS_DEPLOYMENT_TARGET: "16.0"
+  ANDROID_API: "28"
+  ANDROID_NDK_VERSION: "28.2.13676358"
+
+jobs:
+  macos:
+    name: macOS
+    runs-on: macos-26
+    steps:
+      - name: Checkout private build source
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.PRIVATE_SOURCE_REPOSITORY }}
+          token: ${{ secrets.MY_KEY || vars.MY_KEY }}
+          path: source
+          fetch-depth: 1
+
+      - name: Build
+        working-directory: source
+        run: |
+          JOBS="$(sysctl -n hw.ncpu)"
+          shell/build-mac.sh \
+            --branch "${NODE_BRANCH}" \
+            --deployment-target "${MACOSX_DEPLOYMENT_TARGET}" \
+            --dest-cpu arm64 \
+            --jobs "${JOBS}"
+
+      - name: Upload macOS build directory
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-macos
+          path: source/build/macos
+          if-no-files-found: error
+
+  ios:
+    name: iOS
+    runs-on: macos-26
+    steps:
+      - name: Checkout private build source
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.PRIVATE_SOURCE_REPOSITORY }}
+          token: ${{ secrets.MY_KEY || vars.MY_KEY }}
+          path: source
+          fetch-depth: 1
+
+      - name: Build
+        working-directory: source
+        run: |
+          JOBS="$(sysctl -n hw.ncpu)"
+          shell/build-ios.sh \
+            --branch "${NODE_BRANCH}" \
+            --sdk iphoneos \
+            --deployment-target "${IOS_DEPLOYMENT_TARGET}" \
+            --dest-cpu arm64 \
+            --jobs "${JOBS}"
+
+      - name: Upload iOS build directory
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-ios
+          path: source/build/ios
+          if-no-files-found: error
+
+  android:
+    name: Android
+    runs-on: macos-26
+    steps:
+      - name: Checkout private build source
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.PRIVATE_SOURCE_REPOSITORY }}
+          token: ${{ secrets.MY_KEY || vars.MY_KEY }}
+          path: source
+          fetch-depth: 1
+
+      - name: Install Android NDK
+        run: |
+          SDKMANAGER="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "${SDKMANAGER}" ]; then
+            SDKMANAGER="$(command -v sdkmanager)"
+          fi
+          yes | "${SDKMANAGER}" --licenses
+          yes | "${SDKMANAGER}" --install "ndk;${ANDROID_NDK_VERSION}"
+
+      - name: Build
+        working-directory: source
+        run: |
+          JOBS="$(sysctl -n hw.ncpu)"
+          shell/build-android.sh \
+            --branch "${NODE_BRANCH}" \
+            --sdk "${ANDROID_HOME}" \
+            --ndk "${ANDROID_HOME}/ndk/${ANDROID_NDK_VERSION}" \
+            --api "${ANDROID_API}" \
+            --dest-cpu arm64 \
+            --jobs "${JOBS}"
+
+      - name: Upload Android build directory
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-android
+          path: source/build/android
+          if-no-files-found: error
+
+  package:
+    name: Package
+    runs-on: macos-26
+    needs:
+      - macos
+      - ios
+      - android
+    steps:
+      - name: Download build directories
+        uses: actions/download-artifact@v4
+        with:
+          path: build-artifacts
+
+      - name: Rebuild build tree
+        run: |
+          mkdir -p build
+          cp -R build-artifacts/build-macos build/macos
+          cp -R build-artifacts/build-ios build/ios
+          cp -R build-artifacts/build-android build/android
+
+      - name: Create zip packages
+        run: |
+          mkdir -p dist
+          for system_dir in build/*; do
+            if [ -d "${system_dir}" ]; then
+              system_name="$(basename "${system_dir}")"
+              (cd build && zip -qry "../dist/libnode-${system_name}.zip" "${system_name}")
+            fi
+          done
+          (cd build && zip -qry "../dist/libnode-all.zip" .)
+
+      - name: Upload zip packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: libnode-zips
+          path: dist/*.zip
+          if-no-files-found: error
