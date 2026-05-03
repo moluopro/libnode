@@ -17,7 +17,7 @@ jobs:
     runs-on: macos-26
     steps:
       - name: Checkout private build source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: ${{ env.PRIVATE_SOURCE_REPOSITORY }}
           token: ${{ secrets.MY_KEY || vars.MY_KEY }}
@@ -35,7 +35,7 @@ jobs:
             --jobs "${JOBS}"
 
       - name: Upload macOS build directory
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: build-macos
           path: source/build/macos
@@ -46,7 +46,7 @@ jobs:
     runs-on: macos-26
     steps:
       - name: Checkout private build source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: ${{ env.PRIVATE_SOURCE_REPOSITORY }}
           token: ${{ secrets.MY_KEY || vars.MY_KEY }}
@@ -65,7 +65,7 @@ jobs:
             --jobs "${JOBS}"
 
       - name: Upload iOS build directory
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: build-ios
           path: source/build/ios
@@ -76,7 +76,7 @@ jobs:
     runs-on: macos-26
     steps:
       - name: Checkout private build source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: ${{ env.PRIVATE_SOURCE_REPOSITORY }}
           token: ${{ secrets.MY_KEY || vars.MY_KEY }}
@@ -105,7 +105,7 @@ jobs:
             --jobs "${JOBS}"
 
       - name: Upload Android build directory
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: build-android
           path: source/build/android
@@ -120,7 +120,7 @@ jobs:
       - android
     steps:
       - name: Download build directories
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           path: build-artifacts
 
@@ -132,28 +132,28 @@ jobs:
           cp -R build-artifacts/build-android build/android
 
       - name: Upload macOS package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: libnode-macos
           path: build/macos
           if-no-files-found: error
 
       - name: Upload iOS package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: libnode-ios
           path: build/ios
           if-no-files-found: error
 
       - name: Upload Android package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: libnode-android
           path: build/android
           if-no-files-found: error
 
       - name: Upload all-platforms package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: libnode-all
           path: build
