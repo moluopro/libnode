@@ -130,26 +130,30 @@ jobs:
           cp -R build-artifacts/build-macos build/macos
           cp -R build-artifacts/build-ios build/ios
           cp -R build-artifacts/build-android build/android
+          mkdir -p packages/libnode-macos packages/libnode-ios packages/libnode-android
+          cp -R build/macos packages/libnode-macos/macos
+          cp -R build/ios packages/libnode-ios/ios
+          cp -R build/android packages/libnode-android/android
 
       - name: Upload macOS package
         uses: actions/upload-artifact@v6
         with:
           name: libnode-macos
-          path: build/macos
+          path: packages/libnode-macos
           if-no-files-found: error
 
       - name: Upload iOS package
         uses: actions/upload-artifact@v6
         with:
           name: libnode-ios
-          path: build/ios
+          path: packages/libnode-ios
           if-no-files-found: error
 
       - name: Upload Android package
         uses: actions/upload-artifact@v6
         with:
           name: libnode-android
-          path: build/android
+          path: packages/libnode-android
           if-no-files-found: error
 
       - name: Upload all-platforms package
