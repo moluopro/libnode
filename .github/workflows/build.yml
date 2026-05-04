@@ -152,6 +152,9 @@ jobs:
           cp -R package-artifacts/libnode-macos/macos build/macos
           cp -R package-artifacts/libnode-ios/ios build/ios
           cp -R package-artifacts/libnode-android/android build/android
+          mkdir -p build/include
+          rsync -a --include='*/' --include='*.h' --exclude='*' build/macos/include/ build/include/
+          rm -rf build/macos/include build/ios/include build/android/include
 
       - name: Upload all-platforms package
         uses: actions/upload-artifact@v6
