@@ -147,12 +147,14 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential python3 zip
+          sudo apt-get install -y gcc-12 g++-12 make python3 python3-pip zip
 
       - name: Build
         working-directory: source
         run: |
           JOBS="$(nproc)"
+          export CC=gcc-12
+          export CXX=g++-12
           shell/build-linux.sh \
             --branch "${NODE_BRANCH}" \
             --dest-cpu x64 \
