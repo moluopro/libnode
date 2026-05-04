@@ -39,7 +39,8 @@ jobs:
         working-directory: source
         run: |
           mkdir -p packages
-          zip -r packages/libnode-macos.zip build/macos
+          cd build
+          zip -r ../packages/libnode-macos.zip macos
 
       - name: Upload macOS package
         uses: actions/upload-artifact@v6
@@ -70,7 +71,8 @@ jobs:
         working-directory: source
         run: |
           mkdir -p packages
-          zip -r packages/libnode-ios.zip build/ios
+          cd build
+          zip -r ../packages/libnode-ios.zip ios
 
       - name: Upload iOS package
         uses: actions/upload-artifact@v6
@@ -111,7 +113,8 @@ jobs:
         working-directory: source
         run: |
           mkdir -p packages
-          zip -r packages/libnode-android.zip build/android
+          cd build
+          zip -r ../packages/libnode-android.zip android
 
       - name: Upload Android package
         uses: actions/upload-artifact@v6
@@ -147,7 +150,8 @@ jobs:
         working-directory: source
         run: |
           mkdir -p packages
-          zip -r packages/libnode-linux.zip build/linux
+          cd build
+          zip -r ../packages/libnode-linux.zip linux
 
       - name: Upload Linux package
         uses: actions/upload-artifact@v6
@@ -177,6 +181,7 @@ jobs:
           find package-artifacts -name '*.zip' -print -exec unzip -q {} \;
 
           mkdir -p build/include
+          mv macos ios android linux build/
           INCLUDE_DIR="$(find build -path '*/include/node_api.h' -print -quit)"
           if [ -z "${INCLUDE_DIR}" ]; then
             echo "No Node.js include directory found in platform artifacts" >&2
@@ -185,7 +190,8 @@ jobs:
           INCLUDE_DIR="$(dirname "${INCLUDE_DIR}")"
           rsync -a --include='*/' --include='*.h' --exclude='*' "${INCLUDE_DIR}/" build/include/
           find build -mindepth 3 -type d -name include -prune -exec rm -rf {} +
-          zip -r libnode.zip build
+          mv build libnode
+          zip -r libnode.zip libnode
 
       - name: Upload all-platforms package
         uses: actions/upload-artifact@v6
