@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
 env:
-  PRIVATE_SOURCE_REPOSITORY: moluopro/nodejs
+  SOURCE_REPOSITORY: moluopro/nodejs
   NODE_BRANCH: v24.x
   MACOSX_DEPLOYMENT_TARGET: "10.15"
   IOS_DEPLOYMENT_TARGET: "16.0"
@@ -16,10 +16,11 @@ jobs:
     name: macOS
     runs-on: macos-26
     steps:
-      - name: Checkout private build source
+      - &checkout-source
+        name: Checkout source
         uses: actions/checkout@v6
         with:
-          repository: ${{ env.PRIVATE_SOURCE_REPOSITORY }}
+          repository: ${{ env.SOURCE_REPOSITORY }}
           token: ${{ secrets.MY_KEY || vars.MY_KEY }}
           path: source
           fetch-depth: 1
@@ -52,13 +53,7 @@ jobs:
     name: iOS
     runs-on: macos-26
     steps:
-      - name: Checkout private build source
-        uses: actions/checkout@v6
-        with:
-          repository: ${{ env.PRIVATE_SOURCE_REPOSITORY }}
-          token: ${{ secrets.MY_KEY || vars.MY_KEY }}
-          path: source
-          fetch-depth: 1
+      - *checkout-source
 
       - name: Build
         working-directory: source
@@ -89,13 +84,7 @@ jobs:
     name: Android
     runs-on: macos-26
     steps:
-      - name: Checkout private build source
-        uses: actions/checkout@v6
-        with:
-          repository: ${{ env.PRIVATE_SOURCE_REPOSITORY }}
-          token: ${{ secrets.MY_KEY || vars.MY_KEY }}
-          path: source
-          fetch-depth: 1
+      - *checkout-source
 
       - name: Install Android NDK
         run: |
@@ -136,13 +125,7 @@ jobs:
     name: Linux
     runs-on: ubuntu-22.04
     steps:
-      - name: Checkout private build source
-        uses: actions/checkout@v6
-        with:
-          repository: ${{ env.PRIVATE_SOURCE_REPOSITORY }}
-          token: ${{ secrets.MY_KEY || vars.MY_KEY }}
-          path: source
-          fetch-depth: 1
+      - *checkout-source
 
       - name: Install build dependencies
         run: |
