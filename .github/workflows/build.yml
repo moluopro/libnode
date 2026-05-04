@@ -17,7 +17,7 @@ jobs:
     runs-on: macos-26
     steps:
       - name: Checkout private build source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ${{ env.PRIVATE_SOURCE_REPOSITORY }}
           token: ${{ secrets.MY_KEY || vars.MY_KEY }}
@@ -53,7 +53,7 @@ jobs:
     runs-on: macos-26
     steps:
       - name: Checkout private build source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ${{ env.PRIVATE_SOURCE_REPOSITORY }}
           token: ${{ secrets.MY_KEY || vars.MY_KEY }}
@@ -90,7 +90,7 @@ jobs:
     runs-on: macos-26
     steps:
       - name: Checkout private build source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ${{ env.PRIVATE_SOURCE_REPOSITORY }}
           token: ${{ secrets.MY_KEY || vars.MY_KEY }}
@@ -137,7 +137,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout private build source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ${{ env.PRIVATE_SOURCE_REPOSITORY }}
           token: ${{ secrets.MY_KEY || vars.MY_KEY }}
