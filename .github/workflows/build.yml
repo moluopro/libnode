@@ -34,11 +34,17 @@ jobs:
             --dest-cpu arm64 \
             --jobs "${JOBS}"
 
-      - name: Upload macOS build directory
+      - name: Package macOS artifact
+        working-directory: source
+        run: |
+          mkdir -p packages/libnode-macos
+          cp -R build/macos packages/libnode-macos/macos
+
+      - name: Upload macOS package
         uses: actions/upload-artifact@v6
         with:
-          name: build-macos
-          path: source/build/macos
+          name: libnode-macos
+          path: source/packages/libnode-macos
           if-no-files-found: error
 
   ios:
@@ -64,11 +70,17 @@ jobs:
             --dest-cpu arm64 \
             --jobs "${JOBS}"
 
-      - name: Upload iOS build directory
+      - name: Package iOS artifact
+        working-directory: source
+        run: |
+          mkdir -p packages/libnode-ios
+          cp -R build/ios packages/libnode-ios/ios
+
+      - name: Upload iOS package
         uses: actions/upload-artifact@v6
         with:
-          name: build-ios
-          path: source/build/ios
+          name: libnode-ios
+          path: source/packages/libnode-ios
           if-no-files-found: error
 
   android:
@@ -104,11 +116,17 @@ jobs:
             --dest-cpu arm64 \
             --jobs "${JOBS}"
 
-      - name: Upload Android build directory
+      - name: Package Android artifact
+        working-directory: source
+        run: |
+          mkdir -p packages/libnode-android
+          cp -R build/android packages/libnode-android/android
+
+      - name: Upload Android package
         uses: actions/upload-artifact@v6
         with:
-          name: build-android
-          path: source/build/android
+          name: libnode-android
+          path: source/packages/libnode-android
           if-no-files-found: error
 
   package:
@@ -119,46 +137,22 @@ jobs:
       - ios
       - android
     steps:
-      - name: Download build directories
+      - name: Download platform packages
         uses: actions/download-artifact@v6
         with:
-          path: build-artifacts
+          pattern: libnode-*
+          path: package-artifacts
 
       - name: Rebuild build tree
         run: |
           mkdir -p build
-          cp -R build-artifacts/build-macos build/macos
-          cp -R build-artifacts/build-ios build/ios
-          cp -R build-artifacts/build-android build/android
-          mkdir -p packages/libnode-macos packages/libnode-ios packages/libnode-android
-          cp -R build/macos packages/libnode-macos/macos
-          cp -R build/ios packages/libnode-ios/ios
-          cp -R build/android packages/libnode-android/android
-
-      - name: Upload macOS package
-        uses: actions/upload-artifact@v6
-        with:
-          name: libnode-macos
-          path: packages/libnode-macos
-          if-no-files-found: error
-
-      - name: Upload iOS package
-        uses: actions/upload-artifact@v6
-        with:
-          name: libnode-ios
-          path: packages/libnode-ios
-          if-no-files-found: error
-
-      - name: Upload Android package
-        uses: actions/upload-artifact@v6
-        with:
-          name: libnode-android
-          path: packages/libnode-android
-          if-no-files-found: error
+          cp -R package-artifacts/libnode-macos/macos build/macos
+          cp -R package-artifacts/libnode-ios/ios build/ios
+          cp -R package-artifacts/libnode-android/android build/android
 
       - name: Upload all-platforms package
         uses: actions/upload-artifact@v6
         with:
-          name: libnode-all
+          name: libnode
           path: build
           if-no-files-found: error
