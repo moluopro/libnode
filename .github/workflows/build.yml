@@ -182,13 +182,29 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force packages | Out-Null
+          $SymbolsDir = "build/windows/x64/symbols"
+          if (Test-Path $SymbolsDir) {
+            New-Item -ItemType Directory -Force build/windows-symbols/windows/x64 | Out-Null
+            Move-Item $SymbolsDir build/windows-symbols/windows/x64/symbols
+          }
           Compress-Archive -Path build/windows -DestinationPath packages/libnode-windows.zip -Force
+          if (Test-Path build/windows-symbols) {
+            7z a packages/libnode-windows-symbols.zip .\build\windows-symbols\*
+          }
 
       - name: Upload Windows package
         uses: actions/upload-artifact@v6
         with:
           name: libnode-windows
           path: source/packages/libnode-windows.zip
+          if-no-files-found: error
+          retention-days: 2
+
+      - name: Upload Windows symbols package
+        uses: actions/upload-artifact@v6
+        with:
+          name: libnode-windows-symbols
+          path: source/packages/libnode-windows-symbols.zip
           if-no-files-found: error
           retention-days: 2
 
@@ -212,7 +228,7 @@ jobs:
 
       - name: Rebuild build tree
         run: |
-          find package-artifacts -name '*.zip' -print -exec unzip -q {} \;
+          find package-artifacts -name '*.zip' ! -name '*symbols*' -print -exec unzip -q {} \;
 
           mkdir -p build/include
           mv macos ios android linux windows build/
