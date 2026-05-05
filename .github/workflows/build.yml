@@ -152,7 +152,7 @@ jobs:
       - name: Upload Windows package with symbols
         uses: actions/upload-artifact@v6
         with:
-          name: libnode-windows-symbol
+          name: libnode-windows-symbols
           path: source/build/windows
           if-no-files-found: error
           retention-days: 2
