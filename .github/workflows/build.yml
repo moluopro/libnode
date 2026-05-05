@@ -149,11 +149,11 @@ jobs:
             -DestCpu x64 `
             -Jobs $Jobs
 
-      - name: Upload Windows symbols package
+      - name: Upload Windows package with symbols
         uses: actions/upload-artifact@v6
         with:
-          name: libnode-windows-symbols
-          path: source/build/windows/x64/symbols
+          name: libnode-windows-symbol
+          path: source/build/windows
           if-no-files-found: error
           retention-days: 2
 
