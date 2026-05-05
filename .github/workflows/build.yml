@@ -35,17 +35,11 @@ jobs:
             --dest-cpu arm64 \
             --jobs "${JOBS}"
 
-      - name: Package macOS artifact
-        working-directory: source
-        run: |
-          mkdir -p packages/libnode-macos
-          cp -R build/macos packages/libnode-macos/macos
-
       - name: Upload macOS package
         uses: actions/upload-artifact@v6
         with:
           name: libnode-macos
-          path: source/packages/libnode-macos
+          path: source/build/macos
           if-no-files-found: error
           retention-days: 2
 
@@ -66,17 +60,11 @@ jobs:
             --dest-cpu arm64 \
             --jobs "${JOBS}"
 
-      - name: Package iOS artifact
-        working-directory: source
-        run: |
-          mkdir -p packages/libnode-ios
-          cp -R build/ios packages/libnode-ios/ios
-
       - name: Upload iOS package
         uses: actions/upload-artifact@v6
         with:
           name: libnode-ios
-          path: source/packages/libnode-ios
+          path: source/build/ios
           if-no-files-found: error
           retention-days: 2
 
@@ -107,17 +95,11 @@ jobs:
             --dest-cpu arm64 \
             --jobs "${JOBS}"
 
-      - name: Package Android artifact
-        working-directory: source
-        run: |
-          mkdir -p packages/libnode-android
-          cp -R build/android packages/libnode-android/android
-
       - name: Upload Android package
         uses: actions/upload-artifact@v6
         with:
           name: libnode-android
-          path: source/packages/libnode-android
+          path: source/build/android
           if-no-files-found: error
           retention-days: 2
 
@@ -143,17 +125,11 @@ jobs:
             --dest-cpu x64 \
             --jobs "${JOBS}"
 
-      - name: Package Linux artifact
-        working-directory: source
-        run: |
-          mkdir -p packages/libnode-linux
-          cp -R build/linux packages/libnode-linux/linux
-
       - name: Upload Linux package
         uses: actions/upload-artifact@v6
         with:
           name: libnode-linux
-          path: source/packages/libnode-linux
+          path: source/build/linux
           if-no-files-found: error
           retention-days: 2
 
@@ -173,35 +149,24 @@ jobs:
             -DestCpu x64 `
             -Jobs $Jobs
 
-      - name: Package Windows artifact
+      - name: Upload Windows symbols package
+        uses: actions/upload-artifact@v6
+        with:
+          name: libnode-windows-symbols
+          path: source/build/windows/x64/symbols
+          if-no-files-found: error
+          retention-days: 2
+
+      - name: Remove Windows symbols
         working-directory: source
         shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force packages/libnode-windows | Out-Null
-          $SymbolsDir = "build/windows/x64/symbols"
-          if (Test-Path $SymbolsDir) {
-            New-Item -ItemType Directory -Force build/windows-symbols/windows/x64 | Out-Null
-            Move-Item $SymbolsDir build/windows-symbols/windows/x64/symbols
-          }
-          Copy-Item -Path build/windows -Destination packages/libnode-windows/windows -Recurse
-          if (Test-Path build/windows-symbols) {
-            New-Item -ItemType Directory -Force packages/libnode-windows-symbols | Out-Null
-            Copy-Item -Path build/windows-symbols/windows -Destination packages/libnode-windows-symbols/windows -Recurse
-          }
+        run: Remove-Item -Path build/windows/x64/symbols -Recurse -Force
 
       - name: Upload Windows package
         uses: actions/upload-artifact@v6
         with:
           name: libnode-windows
-          path: source/packages/libnode-windows
-          if-no-files-found: error
-          retention-days: 2
-
-      - name: Upload Windows symbols package
-        uses: actions/upload-artifact@v6
-        with:
-          name: libnode-windows-symbols
-          path: source/packages/libnode-windows-symbols
+          path: source/build/windows
           if-no-files-found: error
           retention-days: 2
 
@@ -226,11 +191,11 @@ jobs:
       - name: Rebuild build tree
         run: |
           mkdir -p build/include
-          mv package-artifacts/libnode-macos/macos build/
-          mv package-artifacts/libnode-ios/ios build/
-          mv package-artifacts/libnode-android/android build/
-          mv package-artifacts/libnode-linux/linux build/
-          mv package-artifacts/libnode-windows/windows build/
+          mv package-artifacts/libnode-macos build/macos
+          mv package-artifacts/libnode-ios build/ios
+          mv package-artifacts/libnode-android build/android
+          mv package-artifacts/libnode-linux build/linux
+          mv package-artifacts/libnode-windows build/windows
           INCLUDE_DIR="$(find build -path '*/include/node_api.h' -print -quit)"
           if [ -z "${INCLUDE_DIR}" ]; then
             echo "No Node.js include directory found in platform artifacts" >&2
