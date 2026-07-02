@@ -2,14 +2,21 @@ name: Build libnode
 
 on:
   workflow_dispatch:
+    inputs:
+      node_branch:
+        description: Node.js branch, tag, or commit to build.
+        required: false
+        default: v24.x
 
 env:
   SOURCE_REPOSITORY: moluopro/nodejs
-  NODE_BRANCH: v24.x
+  NODE_BRANCH: ${{ inputs.node_branch || 'v24.x' }}
   MACOSX_DEPLOYMENT_TARGET: "10.15"
   IOS_DEPLOYMENT_TARGET: "16.0"
   ANDROID_API: "28"
   ANDROID_NDK_VERSION: "28.2.13676358"
+  OHOS_SDK_ROOT: ${{ vars.OHOS_SDK_ROOT }}
+  OHOS_NATIVE_HOME: ${{ vars.OHOS_NATIVE_HOME }}
 
 jobs:
   macos:
@@ -103,6 +110,29 @@ jobs:
           if-no-files-found: error
           retention-days: 2
 
+  ohos:
+    name: HarmonyOS
+    runs-on: macos-26
+    steps:
+      - *checkout-source
+
+      - name: Build
+        working-directory: source
+        run: |
+          JOBS="$(sysctl -n hw.ncpu)"
+          shell/build-ohos.sh \
+            --branch "${NODE_BRANCH}" \
+            --dest-cpu arm64 \
+            --jobs "${JOBS}"
+
+      - name: Upload HarmonyOS package
+        uses: actions/upload-artifact@v6
+        with:
+          name: libnode-ohos
+          path: source/build/ohos
+          if-no-files-found: error
+          retention-days: 2
+
   linux:
     name: Linux
     runs-on: ubuntu-22.04
@@ -177,6 +207,7 @@ jobs:
       - macos
       - ios
       - android
+      - ohos
       - linux
       - windows
     steps:
@@ -194,6 +225,7 @@ jobs:
           mv package-artifacts/libnode-macos build/macos
           mv package-artifacts/libnode-ios build/ios
           mv package-artifacts/libnode-android build/android
+          mv package-artifacts/libnode-ohos build/ohos
           mv package-artifacts/libnode-linux build/linux
           mv package-artifacts/libnode-windows build/windows
           INCLUDE_DIR="$(find build -path '*/include/node_api.h' -print -quit)"
