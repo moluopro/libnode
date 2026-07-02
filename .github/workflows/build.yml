@@ -129,11 +129,16 @@ jobs:
           mkdir -p "${SDK_ROOT}"
           curl --fail --location --retry 3 --retry-delay 5 --output "${SDK_ARCHIVE}" "${OHOS_SDK_URL}"
           tar -xzf "${SDK_ARCHIVE}" -C "${SDK_ROOT}"
+          while IFS= read -r package_file; do
+            package_dir="$(dirname "${package_file}")"
+            echo "Extracting HarmonyOS SDK package: ${package_file}"
+            unzip -q -o "${package_file}" -d "${package_dir}"
+          done < <(find "${SDK_ROOT}" -type f -name '*.zip' | sort)
 
           CLANG_PATH="$(find "${SDK_ROOT}" -path '*/native/llvm/bin/aarch64-unknown-linux-ohos-clang' -print -quit)"
           if [ -z "${CLANG_PATH}" ]; then
             echo "HarmonyOS Native SDK was not found in downloaded SDK." >&2
-            find "${SDK_ROOT}" -maxdepth 5 -type d | sort >&2
+            find "${SDK_ROOT}" -maxdepth 7 \( -type d -o -type f \) | sort >&2
             exit 1
           fi
 
