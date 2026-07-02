@@ -17,6 +17,7 @@ env:
   ANDROID_NDK_VERSION: "28.2.13676358"
   OHOS_SDK_ROOT: ${{ vars.OHOS_SDK_ROOT }}
   OHOS_NATIVE_HOME: ${{ vars.OHOS_NATIVE_HOME }}
+  OHOS_SDK_URL: ${{ vars.OHOS_SDK_URL || 'https://repo.huaweicloud.com/openharmony/os/6.0-Release/L2-SDK-MAC-M1-PUBLIC.tar.gz' }}
 
 jobs:
   macos:
@@ -115,6 +116,30 @@ jobs:
     runs-on: macos-26
     steps:
       - *checkout-source
+
+      - name: Install HarmonyOS SDK
+        run: |
+          if [ -n "${OHOS_NATIVE_HOME}" ] && [ -x "${OHOS_NATIVE_HOME}/llvm/bin/aarch64-unknown-linux-ohos-clang" ]; then
+            echo "Using configured HarmonyOS Native SDK: ${OHOS_NATIVE_HOME}"
+            exit 0
+          fi
+
+          SDK_ROOT="${RUNNER_TEMP}/ohos-sdk"
+          SDK_ARCHIVE="${RUNNER_TEMP}/ohos-sdk.tar.gz"
+          mkdir -p "${SDK_ROOT}"
+          curl --fail --location --retry 3 --retry-delay 5 --output "${SDK_ARCHIVE}" "${OHOS_SDK_URL}"
+          tar -xzf "${SDK_ARCHIVE}" -C "${SDK_ROOT}"
+
+          CLANG_PATH="$(find "${SDK_ROOT}" -path '*/native/llvm/bin/aarch64-unknown-linux-ohos-clang' -print -quit)"
+          if [ -z "${CLANG_PATH}" ]; then
+            echo "HarmonyOS Native SDK was not found in downloaded SDK." >&2
+            find "${SDK_ROOT}" -maxdepth 5 -type d | sort >&2
+            exit 1
+          fi
+
+          NATIVE_HOME="$(cd "$(dirname "${CLANG_PATH}")/../.." && pwd)"
+          echo "OHOS_NATIVE_HOME=${NATIVE_HOME}" >> "${GITHUB_ENV}"
+          echo "Installed HarmonyOS Native SDK: ${NATIVE_HOME}"
 
       - name: Build
         working-directory: source
