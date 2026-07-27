@@ -97,6 +97,7 @@ jobs:
             "${package_root}/windows/x64/libnode.props"
             "${package_root}/windows/x64/libnode.cmake"
             "${package_root}/include/node_api.h"
+            "${package_root}/BUILD-METADATA.json"
           )
 
           for file in "${required_files[@]}"; do
@@ -110,6 +111,17 @@ jobs:
             echo "Release package must not include Windows symbols." >&2
             exit 1
           fi
+
+          source_repository="$(jq -er '.source_repository' "${package_root}/BUILD-METADATA.json")"
+          source_commit="$(jq -er '.source_commit' "${package_root}/BUILD-METADATA.json")"
+          node_ref="$(jq -er '.node_ref' "${package_root}/BUILD-METADATA.json")"
+          node_commit="$(jq -er '.node_commit' "${package_root}/BUILD-METADATA.json")"
+          {
+            echo "SOURCE_REPOSITORY=${source_repository}"
+            echo "SOURCE_COMMIT=${source_commit}"
+            echo "NODE_REF=${node_ref}"
+            echo "NODE_COMMIT=${node_commit}"
+          } >> "${GITHUB_ENV}"
 
       - name: Create release archive
         run: |
@@ -169,6 +181,8 @@ jobs:
           cat > "${notes_file}" <<EOF
           Build run: ${BUILD_RUN_URL}
           Build workflow commit: ${BUILD_HEAD_SHA}
+          Packaging source: ${SOURCE_REPOSITORY}@${SOURCE_COMMIT}
+          Node.js source: nodejs/node@${NODE_COMMIT} (${NODE_REF})
 
           Asset SHA256:
 

@@ -3,6 +3,10 @@ name: Build libnode
 on:
   workflow_dispatch:
     inputs:
+      source_ref:
+        description: Exact moluopro/nodejs branch, tag, or commit to build.
+        required: false
+        default: main
       node_branch:
         description: Node.js branch, tag, or commit to build.
         required: false
@@ -10,6 +14,7 @@ on:
 
 env:
   SOURCE_REPOSITORY: moluopro/nodejs
+  SOURCE_REF: ${{ inputs.source_ref || 'main' }}
   NODE_BRANCH: ${{ inputs.node_branch || 'v24.x' }}
   MACOSX_DEPLOYMENT_TARGET: "10.15"
   IOS_DEPLOYMENT_TARGET: "16.0"
@@ -29,6 +34,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: ${{ env.SOURCE_REPOSITORY }}
+          ref: ${{ env.SOURCE_REF }}
           token: ${{ secrets.MY_KEY || vars.MY_KEY }}
           path: source
           fetch-depth: 1
@@ -42,6 +48,21 @@ jobs:
             --deployment-target "${MACOSX_DEPLOYMENT_TARGET}" \
             --dest-cpu arm64 \
             --jobs "${JOBS}"
+
+      - name: Test macOS embedding with force-load
+        working-directory: source
+        run: |
+          clang++ \
+            -std=c++20 \
+            -arch arm64 \
+            -mmacosx-version-min="${MACOSX_DEPLOYMENT_TARGET}" \
+            test/embed-smoke.cc \
+            -I build/macos/arm64/include \
+            -Wl,-force_load,"${PWD}/build/macos/arm64/libnode.a" \
+            -framework CoreFoundation \
+            -framework Security \
+            -o "${RUNNER_TEMP}/libnode-embed-smoke"
+          "${RUNNER_TEMP}/libnode-embed-smoke"
 
       - name: Upload macOS package
         uses: actions/upload-artifact@v6
@@ -102,6 +123,32 @@ jobs:
             --api "${ANDROID_API}" \
             --dest-cpu arm64 \
             --jobs "${JOBS}"
+
+      - name: Test Android whole-archive link
+        working-directory: source
+        run: |
+          ANDROID_CXX="$(find \
+            "${ANDROID_HOME}/ndk/${ANDROID_NDK_VERSION}/toolchains/llvm/prebuilt" \
+            -path "*/bin/aarch64-linux-android${ANDROID_API}-clang++" \
+            -type f \
+            -print \
+            -quit)"
+          if [ -z "${ANDROID_CXX}" ] || [ ! -x "${ANDROID_CXX}" ]; then
+            echo "Android NDK compiler was not found." >&2
+            exit 1
+          fi
+          printf 'int main(void) { return 0; }\n' |
+            "${ANDROID_CXX}" \
+              -x c++ - \
+              -x none \
+              -Wl,--whole-archive \
+              "${PWD}/build/android/arm64/libnode.a" \
+              -Wl,--no-whole-archive \
+              -llog \
+              -ldl \
+              -lm \
+              -pthread \
+              -o "${RUNNER_TEMP}/libnode-android-wholearchive"
 
       - name: Upload Android package
         uses: actions/upload-artifact@v6
@@ -185,6 +232,22 @@ jobs:
             --dest-cpu x64 \
             --jobs "${JOBS}"
 
+      - name: Test Linux embedding with whole-archive
+        working-directory: source
+        run: |
+          g++-12 \
+            -std=c++20 \
+            test/embed-smoke.cc \
+            -I build/linux/x64/include \
+            -Wl,--whole-archive \
+            "${PWD}/build/linux/x64/libnode.a" \
+            -Wl,--no-whole-archive \
+            -ldl \
+            -lrt \
+            -pthread \
+            -o "${RUNNER_TEMP}/libnode-embed-smoke"
+          "${RUNNER_TEMP}/libnode-embed-smoke"
+
       - name: Upload Linux package
         uses: actions/upload-artifact@v6
         with:
@@ -208,6 +271,24 @@ jobs:
             -Branch "${env:NODE_BRANCH}" `
             -DestCpu x64 `
             -Jobs $Jobs
+
+      - name: Test packaged Windows CMake target
+        working-directory: source
+        shell: pwsh
+        run: |
+          $SmokeBuild = Join-Path $env:RUNNER_TEMP "libnode-cmake-smoke"
+          $CMakeFile = Join-Path $PWD "build/windows/x64/libnode.cmake"
+          cmake `
+            -S test/windows-cmake-smoke `
+            -B $SmokeBuild `
+            -G "Visual Studio 17 2022" `
+            -A x64 `
+            "-DLIBNODE_CMAKE_FILE=$CMakeFile"
+          if ($LASTEXITCODE -ne 0) { throw "CMake configure failed" }
+          cmake --build $SmokeBuild --config Release
+          if ($LASTEXITCODE -ne 0) { throw "CMake build failed" }
+          & (Join-Path $SmokeBuild "Release/libnode_windows_cmake_smoke.exe")
+          if ($LASTEXITCODE -ne 0) { throw "CMake smoke executable failed" }
 
       - name: Upload Windows package with symbols
         uses: actions/upload-artifact@v6
@@ -258,6 +339,21 @@ jobs:
           mv package-artifacts/libnode-ohos build/ohos
           mv package-artifacts/libnode-linux build/linux
           mv package-artifacts/libnode-windows build/windows
+
+          node_commits="$(find build -type f -name node-commit.txt -print0 \
+            | xargs -0 cat \
+            | tr -d '\r' \
+            | sed '/^$/d' \
+            | sort -u)"
+          node_commit_count="$(printf '%s\n' "${node_commits}" | sed '/^$/d' | wc -l)"
+          if [ "${node_commit_count}" -ne 1 ]; then
+            echo "Platform artifacts were not built from one Node.js commit:" >&2
+            printf '%s\n' "${node_commits}" >&2
+            exit 1
+          fi
+          node_commit="$(printf '%s\n' "${node_commits}" | head -n 1)"
+          find build -type f -name node-commit.txt -delete
+
           INCLUDE_DIR="$(find build -path '*/include/node_api.h' -print -quit)"
           if [ -z "${INCLUDE_DIR}" ]; then
             echo "No Node.js include directory found in platform artifacts" >&2
@@ -270,6 +366,29 @@ jobs:
           cp source/patch/windows/bundle-libnode.cmake build/windows/x64/libnode.cmake
           mkdir -p package-upload
           mv build package-upload/libnode
+
+          source_commit="$(git -C source rev-parse HEAD)"
+          jq -n \
+            --arg source_repository "${SOURCE_REPOSITORY}" \
+            --arg source_ref "${SOURCE_REF}" \
+            --arg source_commit "${source_commit}" \
+            --arg node_ref "${NODE_BRANCH}" \
+            --arg node_commit "${node_commit}" \
+            --arg workflow_repository "${GITHUB_REPOSITORY}" \
+            --arg workflow_commit "${GITHUB_SHA}" \
+            '{
+              source_repository: $source_repository,
+              source_ref: $source_ref,
+              source_commit: $source_commit,
+              node_ref: $node_ref,
+              node_commit: $node_commit,
+              workflow_repository: $workflow_repository,
+              workflow_commit: $workflow_commit
+            }' > package-upload/libnode/BUILD-METADATA.json
+
+      - name: Validate runtime-only package
+        run: |
+          bash source/shell/validate-libnode-package.sh package-upload/libnode
 
       - name: Upload all-platforms package
         uses: actions/upload-artifact@v6
