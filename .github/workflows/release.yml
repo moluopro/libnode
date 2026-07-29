@@ -216,20 +216,36 @@ jobs:
           rm -f "${asset_path}" "${debug_asset_path}"
           (
             cd package-release
-            zip -qry "${asset_path}" libnode
+            zip -9qry "${asset_path}" libnode
           )
           (
             cd package-debug
-            zip -qry "${debug_asset_path}" libnode
+            zip -9qry "${debug_asset_path}" libnode
           )
+
+          max_asset_bytes=2147483648
+          asset_size="$(stat -c '%s' "${asset_path}")"
+          debug_asset_size="$(stat -c '%s' "${debug_asset_path}")"
+          check_asset_size() {
+            local asset_name="$1"
+            local asset_bytes="$2"
+            if [ "${asset_bytes}" -ge "${max_asset_bytes}" ]; then
+              echo "${asset_name} is ${asset_bytes} bytes; GitHub Release assets must be under 2 GiB." >&2
+              exit 1
+            fi
+          }
+          check_asset_size "${ASSET_NAME}" "${asset_size}"
+          check_asset_size "${DEBUG_ASSET_NAME}" "${debug_asset_size}"
 
           sha256="$(sha256sum "${asset_path}" | awk '{print $1}')"
           debug_sha256="$(sha256sum "${debug_asset_path}" | awk '{print $1}')"
           {
             echo "ASSET_PATH=${asset_path}"
             echo "ASSET_SHA256=${sha256}"
+            echo "ASSET_SIZE=${asset_size}"
             echo "DEBUG_ASSET_PATH=${debug_asset_path}"
             echo "DEBUG_ASSET_SHA256=${debug_sha256}"
+            echo "DEBUG_ASSET_SIZE=${debug_asset_size}"
           } >> "${GITHUB_ENV}"
 
           unzip -Z1 "${asset_path}" | sed -n '1,40p'
@@ -284,6 +300,13 @@ jobs:
           \`\`\`
           ${ASSET_SHA256}  ${ASSET_NAME}
           ${DEBUG_ASSET_SHA256}  ${DEBUG_ASSET_NAME}
+          \`\`\`
+
+          Asset size:
+
+          \`\`\`
+          ${ASSET_SIZE}  ${ASSET_NAME}
+          ${DEBUG_ASSET_SIZE}  ${DEBUG_ASSET_NAME}
           \`\`\`
           EOF
 
