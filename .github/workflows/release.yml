@@ -125,18 +125,25 @@ jobs:
             local artifact_name="$2"
             local expected_build_type="$3"
             local expected_debug_info="$4"
+            local expect_ohos="$5"
+            local expected_platforms="$6"
             local required_files=(
               "${package_root}/android/arm64/libnode.a"
               "${package_root}/ios/arm64/libnode.a"
               "${package_root}/linux/x64/libnode.a"
               "${package_root}/macos/arm64/libnode.a"
-              "${package_root}/ohos/arm64/libnode.a"
               "${package_root}/windows/x64/libnode.lib"
               "${package_root}/windows/x64/libnode.props"
               "${package_root}/windows/x64/libnode.cmake"
               "${package_root}/include/node_api.h"
               "${package_root}/BUILD-METADATA.json"
             )
+            if [ "${expect_ohos}" = "true" ]; then
+              required_files+=("${package_root}/ohos/arm64/libnode.a")
+            elif [ -e "${package_root}/ohos" ]; then
+              echo "Debug package must not contain HarmonyOS files." >&2
+              exit 1
+            fi
 
             if [ ! -d "${package_root}" ]; then
               echo "Expected ${package_root} from artifact ${artifact_name}." >&2
@@ -160,12 +167,28 @@ jobs:
               echo "Artifact ${artifact_name} has unexpected debug information metadata." >&2
               exit 1
             fi
+            if [ "$(jq -cer '.platforms' "${package_root}/BUILD-METADATA.json")" != "${expected_platforms}" ]; then
+              echo "Artifact ${artifact_name} has an unexpected platform set." >&2
+              exit 1
+            fi
           }
 
           release_root="package-release/libnode"
           debug_root="package-debug/libnode"
-          validate_tree "${release_root}" "${ARTIFACT_NAME}" "Release" "stripped"
-          validate_tree "${debug_root}" "${DEBUG_ARTIFACT_NAME}" "Debug" "embedded-full-windows-compact-non-windows"
+          validate_tree \
+            "${release_root}" \
+            "${ARTIFACT_NAME}" \
+            "Release" \
+            "stripped" \
+            "true" \
+            '["android","ios","linux","macos","ohos","windows"]'
+          validate_tree \
+            "${debug_root}" \
+            "${DEBUG_ARTIFACT_NAME}" \
+            "Debug" \
+            "embedded-full-windows-compact-non-windows" \
+            "false" \
+            '["android","ios","linux","macos","windows"]'
 
           metadata_keys=(
             source_repository
@@ -211,21 +234,23 @@ jobs:
           debug_asset_path="${RUNNER_TEMP}/${DEBUG_ASSET_NAME}"
           release_tree="${RUNNER_TEMP}/release-tree.txt"
           debug_tree="${RUNNER_TEMP}/debug-tree.txt"
-          find package-release/libnode -printf '%P\n' | LC_ALL=C sort > "${release_tree}"
+          find package-release/libnode -printf '%P\n' \
+            | sed '\|^ohos$|d; \|^ohos/|d' \
+            | LC_ALL=C sort > "${release_tree}"
           find package-debug/libnode -printf '%P\n' | LC_ALL=C sort > "${debug_tree}"
           if ! diff -u "${release_tree}" "${debug_tree}"; then
-            echo "Release and Debug package paths differ; the packages are not drop-in replacements." >&2
+            echo "Release and Debug package paths differ outside the intentionally Release-only HarmonyOS tree." >&2
             exit 1
           fi
 
           rm -f "${asset_path}" "${debug_asset_path}"
           (
             cd package-release
-            zip -9qry "${asset_path}" libnode
+            zip -7qry "${asset_path}" libnode
           )
           (
             cd package-debug
-            zip -9qry "${debug_asset_path}" libnode
+            zip -7qry "${debug_asset_path}" libnode
           )
 
           max_asset_bytes=2147483648
@@ -300,6 +325,7 @@ jobs:
           Packaging source: ${SOURCE_REPOSITORY}@${SOURCE_COMMIT}
           Node.js source: nodejs/node@${NODE_COMMIT} (${NODE_REF})
           Debug information: embedded full /Z7 on Windows; compact -g1 DWARF on non-Windows.
+          Debug platforms: Android, iOS, Linux, macOS, and Windows. HarmonyOS is Release-only.
 
           Asset SHA256:
 
