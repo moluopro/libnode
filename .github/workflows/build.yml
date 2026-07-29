@@ -173,6 +173,7 @@ jobs:
 
   ohos:
     name: HarmonyOS
+    if: ${{ inputs.build_type != 'Debug' }}
     runs-on: macos-26
     steps:
       - *checkout-source
@@ -328,6 +329,19 @@ jobs:
 
   package:
     name: Package
+    if: >-
+      ${{
+        always() &&
+        needs.macos.result == 'success' &&
+        needs.ios.result == 'success' &&
+        needs.android.result == 'success' &&
+        needs.linux.result == 'success' &&
+        needs.windows.result == 'success' &&
+        (
+          needs.ohos.result == 'success' ||
+          (inputs.build_type == 'Debug' && needs.ohos.result == 'skipped')
+        )
+      }}
     runs-on: ubuntu-latest
     needs:
       - macos
@@ -351,9 +365,14 @@ jobs:
           mv package-artifacts/libnode-macos build/macos
           mv package-artifacts/libnode-ios build/ios
           mv package-artifacts/libnode-android build/android
-          mv package-artifacts/libnode-ohos build/ohos
           mv package-artifacts/libnode-linux build/linux
           mv package-artifacts/libnode-windows build/windows
+          if [ "${BUILD_TYPE}" = "Release" ]; then
+            mv package-artifacts/libnode-ohos build/ohos
+          elif [ -e package-artifacts/libnode-ohos ]; then
+            echo "Debug package must not contain a HarmonyOS artifact." >&2
+            exit 1
+          fi
 
           node_commits="$(find build -type f -name node-commit.txt -print0 \
             | xargs -0 cat \
@@ -387,6 +406,10 @@ jobs:
           mv build package-upload/libnode
 
           source_commit="$(git -C source rev-parse HEAD)"
+          platforms='["android","ios","linux","macos","windows"]'
+          if [ "${BUILD_TYPE}" = "Release" ]; then
+            platforms='["android","ios","linux","macos","ohos","windows"]'
+          fi
           jq -n \
             --arg source_repository "${SOURCE_REPOSITORY}" \
             --arg source_ref "${SOURCE_REF}" \
@@ -395,6 +418,7 @@ jobs:
             --arg node_commit "${node_commit}" \
             --arg build_type "${BUILD_TYPE}" \
             --arg debug_info "${DEBUG_INFO}" \
+            --argjson platforms "${platforms}" \
             --arg workflow_repository "${GITHUB_REPOSITORY}" \
             --arg workflow_commit "${GITHUB_SHA}" \
             '{
@@ -405,15 +429,23 @@ jobs:
               node_commit: $node_commit,
               build_type: $build_type,
               debug_info: $debug_info,
+              platforms: $platforms,
               workflow_repository: $workflow_repository,
               workflow_commit: $workflow_commit
             }' > package-upload/libnode/BUILD-METADATA.json
 
       - name: Validate runtime-only package
         run: |
-          bash source/shell/validate-libnode-package.sh package-upload/libnode
+          expected_platforms='["android","ios","linux","macos","windows"]'
+          if [ "${BUILD_TYPE}" = "Release" ]; then
+            bash source/shell/validate-libnode-package.sh package-upload/libnode
+            expected_platforms='["android","ios","linux","macos","ohos","windows"]'
+          else
+            bash source/shell/validate-libnode-package.sh --without-ohos package-upload/libnode
+          fi
           test "$(jq -er '.build_type' package-upload/libnode/BUILD-METADATA.json)" = "${BUILD_TYPE}"
           test "$(jq -er '.debug_info' package-upload/libnode/BUILD-METADATA.json)" = "${DEBUG_INFO}"
+          test "$(jq -cer '.platforms' package-upload/libnode/BUILD-METADATA.json)" = "${expected_platforms}"
 
       - name: Upload all-platforms package
         uses: actions/upload-artifact@v6
