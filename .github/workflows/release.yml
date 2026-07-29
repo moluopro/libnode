@@ -124,6 +124,7 @@ jobs:
             local package_root="$1"
             local artifact_name="$2"
             local expected_build_type="$3"
+            local expected_debug_info="$4"
             local required_files=(
               "${package_root}/android/arm64/libnode.a"
               "${package_root}/ios/arm64/libnode.a"
@@ -155,12 +156,16 @@ jobs:
               echo "Artifact ${artifact_name} is not a ${expected_build_type} package." >&2
               exit 1
             fi
+            if [ "$(jq -er '.debug_info' "${package_root}/BUILD-METADATA.json")" != "${expected_debug_info}" ]; then
+              echo "Artifact ${artifact_name} has unexpected debug information metadata." >&2
+              exit 1
+            fi
           }
 
           release_root="package-release/libnode"
           debug_root="package-debug/libnode"
-          validate_tree "${release_root}" "${ARTIFACT_NAME}" "Release"
-          validate_tree "${debug_root}" "${DEBUG_ARTIFACT_NAME}" "Debug"
+          validate_tree "${release_root}" "${ARTIFACT_NAME}" "Release" "stripped"
+          validate_tree "${debug_root}" "${DEBUG_ARTIFACT_NAME}" "Debug" "embedded-full-windows-compact-non-windows"
 
           metadata_keys=(
             source_repository
@@ -294,6 +299,7 @@ jobs:
           Build workflow commit: ${BUILD_HEAD_SHA}
           Packaging source: ${SOURCE_REPOSITORY}@${SOURCE_COMMIT}
           Node.js source: nodejs/node@${NODE_COMMIT} (${NODE_REF})
+          Debug information: embedded full /Z7 on Windows; compact -g1 DWARF on non-Windows.
 
           Asset SHA256:
 

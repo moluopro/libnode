@@ -26,6 +26,7 @@ env:
   NODE_BRANCH: ${{ inputs.node_branch || 'v24.x' }}
   BUILD_TYPE: ${{ inputs.build_type || 'Release' }}
   PACKAGE_ARTIFACT_NAME: ${{ inputs.build_type == 'Debug' && 'libnode-debug' || 'libnode' }}
+  DEBUG_INFO: ${{ inputs.build_type == 'Debug' && 'embedded-full-windows-compact-non-windows' || 'stripped' }}
   MACOSX_DEPLOYMENT_TARGET: "10.15"
   IOS_DEPLOYMENT_TARGET: "16.0"
   ANDROID_API: "28"
@@ -393,6 +394,7 @@ jobs:
             --arg node_ref "${NODE_BRANCH}" \
             --arg node_commit "${node_commit}" \
             --arg build_type "${BUILD_TYPE}" \
+            --arg debug_info "${DEBUG_INFO}" \
             --arg workflow_repository "${GITHUB_REPOSITORY}" \
             --arg workflow_commit "${GITHUB_SHA}" \
             '{
@@ -402,6 +404,7 @@ jobs:
               node_ref: $node_ref,
               node_commit: $node_commit,
               build_type: $build_type,
+              debug_info: $debug_info,
               workflow_repository: $workflow_repository,
               workflow_commit: $workflow_commit
             }' > package-upload/libnode/BUILD-METADATA.json
@@ -410,6 +413,7 @@ jobs:
         run: |
           bash source/shell/validate-libnode-package.sh package-upload/libnode
           test "$(jq -er '.build_type' package-upload/libnode/BUILD-METADATA.json)" = "${BUILD_TYPE}"
+          test "$(jq -er '.debug_info' package-upload/libnode/BUILD-METADATA.json)" = "${DEBUG_INFO}"
 
       - name: Upload all-platforms package
         uses: actions/upload-artifact@v6
