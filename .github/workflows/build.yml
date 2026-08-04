@@ -297,12 +297,19 @@ jobs:
             -B $SmokeBuild `
             -G "Visual Studio 17 2022" `
             -A x64 `
-            "-DLIBNODE_CMAKE_FILE=$CMakeFile"
+            "-DLIBNODE_CMAKE_FILE=$CMakeFile" `
+            "-DLIBNODE_EXPECT_DEBUG_SOURCE=$($env:BUILD_TYPE -eq 'Debug')"
           if ($LASTEXITCODE -ne 0) { throw "CMake configure failed" }
           cmake --build $SmokeBuild --config $env:BUILD_TYPE
           if ($LASTEXITCODE -ne 0) { throw "CMake build failed" }
           & (Join-Path $SmokeBuild "$env:BUILD_TYPE/libnode_windows_cmake_smoke.exe")
           if ($LASTEXITCODE -ne 0) { throw "CMake smoke executable failed" }
+          if ($env:BUILD_TYPE -eq "Debug") {
+            $ProjectFile = Join-Path $SmokeBuild "libnode_windows_cmake_smoke.vcxproj"
+            if (-not (Select-String -Path $ProjectFile -SimpleMatch "<SourcePath>" -Quiet)) {
+              throw "Generated CMake project does not contain the libnode debug source path"
+            }
+          }
 
       - name: Upload Windows package with symbols
         if: ${{ env.BUILD_TYPE == 'Release' }}
@@ -395,7 +402,7 @@ jobs:
           fi
           INCLUDE_DIR="$(dirname "${INCLUDE_DIR}")"
           rsync -a --include='*/' --include='*.h' --exclude='*' "${INCLUDE_DIR}/" build/include/
-          find build -mindepth 3 -type d -name include -prune -exec rm -rf {} +
+          find build -mindepth 3 -maxdepth 3 -type d -name include -prune -exec rm -rf {} +
           cp source/patch/windows/bundle-libnode.props build/windows/x64/libnode.props
           cp source/patch/windows/bundle-libnode.cmake build/windows/x64/libnode.cmake
           if [ "${BUILD_TYPE}" = "Debug" ]; then
@@ -407,8 +414,15 @@ jobs:
 
           source_commit="$(git -C source rev-parse HEAD)"
           platforms='["android","ios","linux","macos","windows"]'
+          debug_source='null'
           if [ "${BUILD_TYPE}" = "Release" ]; then
             platforms='["android","ios","linux","macos","ohos","windows"]'
+          else
+            debug_source='{
+              "platform": "windows",
+              "root": "windows/x64/source/node",
+              "metadata": "windows/x64/source/SOURCE-METADATA.json"
+            }'
           fi
           jq -n \
             --arg source_repository "${SOURCE_REPOSITORY}" \
@@ -419,6 +433,7 @@ jobs:
             --arg build_type "${BUILD_TYPE}" \
             --arg debug_info "${DEBUG_INFO}" \
             --argjson platforms "${platforms}" \
+            --argjson debug_source "${debug_source}" \
             --arg workflow_repository "${GITHUB_REPOSITORY}" \
             --arg workflow_commit "${GITHUB_SHA}" \
             '{
@@ -430,6 +445,7 @@ jobs:
               build_type: $build_type,
               debug_info: $debug_info,
               platforms: $platforms,
+              debug_source: $debug_source,
               workflow_repository: $workflow_repository,
               workflow_commit: $workflow_commit
             }' > package-upload/libnode/BUILD-METADATA.json
@@ -441,7 +457,10 @@ jobs:
             bash source/shell/validate-libnode-package.sh package-upload/libnode
             expected_platforms='["android","ios","linux","macos","ohos","windows"]'
           else
-            bash source/shell/validate-libnode-package.sh --without-ohos package-upload/libnode
+            bash source/shell/validate-libnode-package.sh \
+              --without-ohos \
+              --with-windows-debug-source \
+              package-upload/libnode
           fi
           test "$(jq -er '.build_type' package-upload/libnode/BUILD-METADATA.json)" = "${BUILD_TYPE}"
           test "$(jq -er '.debug_info' package-upload/libnode/BUILD-METADATA.json)" = "${DEBUG_INFO}"
