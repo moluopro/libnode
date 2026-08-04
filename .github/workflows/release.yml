@@ -127,6 +127,7 @@ jobs:
             local expected_debug_info="$4"
             local expect_ohos="$5"
             local expected_platforms="$6"
+            local expect_windows_debug_source="$7"
             local required_files=(
               "${package_root}/android/arm64/libnode.a"
               "${package_root}/ios/arm64/libnode.a"
@@ -159,6 +160,53 @@ jobs:
               echo "${expected_build_type} package must not include a symbols directory." >&2
               exit 1
             fi
+            windows_debug_source="${package_root}/windows/x64/source"
+            if [ "${expect_windows_debug_source}" = "true" ]; then
+              debug_source_metadata="${windows_debug_source}/SOURCE-METADATA.json"
+              debug_node_source="${windows_debug_source}/node"
+              debug_source_files=(
+                "${debug_source_metadata}"
+                "${debug_node_source}/src/node.cc"
+                "${debug_node_source}/deps/v8/src/init/v8.cc"
+                "${debug_node_source}/deps/uv/src/win/core.c"
+              )
+              for file in "${debug_source_files[@]}"; do
+                if [ ! -f "${file}" ]; then
+                  echo "Missing Windows Debug source file: ${file}" >&2
+                  exit 1
+                fi
+              done
+              actual_source_file_count="$(find "${debug_node_source}" -type f | wc -l | tr -d ' ')"
+              metadata_source_file_count="$(jq -er '.source_file_count' "${debug_source_metadata}")"
+              if [ "${actual_source_file_count}" != "${metadata_source_file_count}" ] ||
+                 [ "${actual_source_file_count}" -lt 10000 ]; then
+                echo "Windows Debug source bundle is incomplete or does not match its metadata." >&2
+                exit 1
+              fi
+              if ! find "${debug_node_source}/out/Debug" \
+                -type f \( -name '*.c' -o -name '*.cc' -o -name '*.cpp' -o -name '*.cxx' \) \
+                -print -quit | grep -q .; then
+                echo "Windows Debug source bundle does not contain generated sources." >&2
+                exit 1
+              fi
+              debug_source_root="$(jq -er '.debug_source.root' "${package_root}/BUILD-METADATA.json")"
+              if [ "${debug_source_root}" != "windows/x64/source/node" ]; then
+                echo "Debug package has unexpected source metadata." >&2
+                exit 1
+              fi
+              debug_source_node_commit="$(jq -er '.node_commit' "${debug_source_metadata}")"
+              package_node_commit="$(jq -er '.node_commit' "${package_root}/BUILD-METADATA.json")"
+              if [ "${debug_source_node_commit}" != "${package_node_commit}" ]; then
+                echo "Windows Debug source and package Node.js commits differ." >&2
+                exit 1
+              fi
+            elif [ -e "${windows_debug_source}" ]; then
+              echo "${expected_build_type} package must not contain Windows Debug sources." >&2
+              exit 1
+            elif [ "$(jq -cer '.debug_source' "${package_root}/BUILD-METADATA.json")" != "null" ]; then
+              echo "${expected_build_type} package has unexpected Debug source metadata." >&2
+              exit 1
+            fi
             if [ "$(jq -er '.build_type' "${package_root}/BUILD-METADATA.json")" != "${expected_build_type}" ]; then
               echo "Artifact ${artifact_name} is not a ${expected_build_type} package." >&2
               exit 1
@@ -181,14 +229,16 @@ jobs:
             "Release" \
             "stripped" \
             "true" \
-            '["android","ios","linux","macos","ohos","windows"]'
+            '["android","ios","linux","macos","ohos","windows"]' \
+            "false"
           validate_tree \
             "${debug_root}" \
             "${DEBUG_ARTIFACT_NAME}" \
             "Debug" \
             "embedded-full-windows-compact-non-windows" \
             "false" \
-            '["android","ios","linux","macos","windows"]'
+            '["android","ios","linux","macos","windows"]' \
+            "true"
 
           metadata_keys=(
             source_repository
@@ -237,9 +287,11 @@ jobs:
           find package-release/libnode -printf '%P\n' \
             | sed '\|^ohos$|d; \|^ohos/|d' \
             | LC_ALL=C sort > "${release_tree}"
-          find package-debug/libnode -printf '%P\n' | LC_ALL=C sort > "${debug_tree}"
+          find package-debug/libnode -printf '%P\n' \
+            | sed '\|^windows/x64/source$|d; \|^windows/x64/source/|d' \
+            | LC_ALL=C sort > "${debug_tree}"
           if ! diff -u "${release_tree}" "${debug_tree}"; then
-            echo "Release and Debug package paths differ outside the intentionally Release-only HarmonyOS tree." >&2
+            echo "Release and Debug package paths differ outside the intentional HarmonyOS and Windows Debug source trees." >&2
             exit 1
           fi
 
