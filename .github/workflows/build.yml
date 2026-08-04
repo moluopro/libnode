@@ -27,6 +27,7 @@ env:
   BUILD_TYPE: ${{ inputs.build_type || 'Release' }}
   PACKAGE_ARTIFACT_NAME: ${{ inputs.build_type == 'Debug' && 'libnode-debug' || 'libnode' }}
   DEBUG_INFO: ${{ inputs.build_type == 'Debug' && 'embedded-full-windows-compact-non-windows' || 'stripped' }}
+  ICU_PROFILE: selected-locales-full-break-v1
   MACOSX_DEPLOYMENT_TARGET: "10.15"
   IOS_DEPLOYMENT_TARGET: "16.0"
   ANDROID_API: "28"
@@ -401,8 +402,15 @@ jobs:
             exit 1
           fi
           INCLUDE_DIR="$(dirname "${INCLUDE_DIR}")"
-          rsync -a --include='*/' --include='*.h' --exclude='*' "${INCLUDE_DIR}/" build/include/
+          rsync -a \
+            --include='*/' \
+            --include='*.h' \
+            --include='*.gypi' \
+            --exclude='*' \
+            "${INCLUDE_DIR}/" \
+            build/include/
           find build -mindepth 3 -maxdepth 3 -type d -name include -prune -exec rm -rf {} +
+          cp source/patch/icu/icu-selected-locales.json build/ICU-PROFILE.json
           cp source/patch/windows/bundle-libnode.props build/windows/x64/libnode.props
           cp source/patch/windows/bundle-libnode.cmake build/windows/x64/libnode.cmake
           if [ "${BUILD_TYPE}" = "Debug" ]; then
@@ -432,6 +440,7 @@ jobs:
             --arg node_commit "${node_commit}" \
             --arg build_type "${BUILD_TYPE}" \
             --arg debug_info "${DEBUG_INFO}" \
+            --arg icu_profile "${ICU_PROFILE}" \
             --argjson platforms "${platforms}" \
             --argjson debug_source "${debug_source}" \
             --arg workflow_repository "${GITHUB_REPOSITORY}" \
@@ -444,6 +453,7 @@ jobs:
               node_commit: $node_commit,
               build_type: $build_type,
               debug_info: $debug_info,
+              icu_profile: $icu_profile,
               platforms: $platforms,
               debug_source: $debug_source,
               workflow_repository: $workflow_repository,
@@ -464,6 +474,7 @@ jobs:
           fi
           test "$(jq -er '.build_type' package-upload/libnode/BUILD-METADATA.json)" = "${BUILD_TYPE}"
           test "$(jq -er '.debug_info' package-upload/libnode/BUILD-METADATA.json)" = "${DEBUG_INFO}"
+          test "$(jq -er '.icu_profile' package-upload/libnode/BUILD-METADATA.json)" = "${ICU_PROFILE}"
           test "$(jq -cer '.platforms' package-upload/libnode/BUILD-METADATA.json)" = "${expected_platforms}"
 
       - name: Upload all-platforms package
