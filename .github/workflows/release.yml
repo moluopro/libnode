@@ -137,6 +137,8 @@ jobs:
               "${package_root}/windows/x64/libnode.props"
               "${package_root}/windows/x64/libnode.cmake"
               "${package_root}/include/node_api.h"
+              "${package_root}/include/config.gypi"
+              "${package_root}/ICU-PROFILE.json"
               "${package_root}/BUILD-METADATA.json"
             )
             if [ "${expect_ohos}" = "true" ]; then
@@ -215,6 +217,19 @@ jobs:
               echo "Artifact ${artifact_name} has unexpected debug information metadata." >&2
               exit 1
             fi
+            if [ "$(jq -er '.icu_profile' "${package_root}/BUILD-METADATA.json")" != "selected-locales-full-break-v1" ]; then
+              echo "Artifact ${artifact_name} has an unexpected ICU profile." >&2
+              exit 1
+            fi
+            if jq -e '
+              (.trees.brkitr? // null) != null or
+              (.trees.brkfiles? // null) != null or
+              (.trees.brkdict? // null) != null or
+              (.remove // [] | index("brkitr/root.res")) != null
+            ' "${package_root}/ICU-PROFILE.json" >/dev/null; then
+              echo "Artifact ${artifact_name} prunes required ICU break-iterator data." >&2
+              exit 1
+            fi
             if [ "$(jq -cer '.platforms' "${package_root}/BUILD-METADATA.json")" != "${expected_platforms}" ]; then
               echo "Artifact ${artifact_name} has an unexpected platform set." >&2
               exit 1
@@ -246,6 +261,7 @@ jobs:
             source_commit
             node_ref
             node_commit
+            icu_profile
             workflow_repository
             workflow_commit
           )
