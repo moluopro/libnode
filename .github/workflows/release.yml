@@ -12,7 +12,7 @@ on:
       tag:
         description: Release tag to create.
         required: true
-        default: 24.18.0
+        default: 24.21.0
       release_name:
         description: Release title. Defaults to the tag when empty.
         required: false
@@ -351,6 +351,27 @@ jobs:
           unzip -Z1 "${debug_asset_path}" | sed -n '1,40p'
           test "$(unzip -Z1 "${debug_asset_path}" | sed -n '1p')" = "libnode/"
 
+      - name: Download and validate Lite and V8 packages
+        run: |
+          set -euo pipefail
+          for profile in libnode-lite libv8; do
+            root=libnode
+            if [ "$profile" = libv8 ]; then root=libv8; fi
+            gh run download "$BUILD_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "$profile" --dir "package-$profile"
+            metadata="package-$profile/$root/BUILD-METADATA.json"
+            test "$(jq -er '.profile' "$metadata")" = "$profile"
+            test "$(jq -er '.node_ref' "$metadata")" = "$NODE_REF"
+            test "$(jq -er '.node_commit' "$metadata")" = "$NODE_COMMIT"
+            test "$(jq -er '.source_commit' "$metadata")" = "$SOURCE_COMMIT"
+            test "$(jq -er '.workflow_commit' "$metadata")" = "$BUILD_HEAD_SHA"
+            (cd "package-$profile" && zip -7qry "$RUNNER_TEMP/$profile.zip" "$root")
+            test "$(stat -c '%s' "$RUNNER_TEMP/$profile.zip")" -lt 2147483648
+          done
+          {
+            echo "LITE_ASSET_SHA256=$(sha256sum "$RUNNER_TEMP/libnode-lite.zip" | awk '{print $1}')"
+            echo "V8_ASSET_SHA256=$(sha256sum "$RUNNER_TEMP/libv8.zip" | awk '{print $1}')"
+          } >> "$GITHUB_ENV"
+
       - name: Remove existing release
         if: ${{ inputs.replace_existing }}
         run: |
@@ -394,12 +415,17 @@ jobs:
           Node.js source: nodejs/node@${NODE_COMMIT} (${NODE_REF})
           Debug information: embedded full /Z7 on Windows; compact -g1 DWARF on non-Windows.
           Debug platforms: Android, iOS, Linux, macOS, and Windows. HarmonyOS is Release-only.
+          libnode-lite.zip retains Node Environment and N-API compatibility with ICU, OpenSSL, Inspector, SQLite and the V8 WebAssembly API disabled, with V8 Lite defaulting to jitless execution.
+          libv8.zip contains standalone V8 Lite and its dependencies without Node or libuv.
+          The two new packages currently contain native targets only; wasm32 Web exports are not available.
 
           Asset SHA256:
 
           \`\`\`
           ${ASSET_SHA256}  ${ASSET_NAME}
           ${DEBUG_ASSET_SHA256}  ${DEBUG_ASSET_NAME}
+          ${LITE_ASSET_SHA256}  libnode-lite.zip
+          ${V8_ASSET_SHA256}  libv8.zip
           \`\`\`
 
           Asset size:
@@ -410,7 +436,7 @@ jobs:
           \`\`\`
           EOF
 
-          gh release create "${TAG}" "${ASSET_PATH}" "${DEBUG_ASSET_PATH}" \
+          gh release create "${TAG}" "${ASSET_PATH}" "${DEBUG_ASSET_PATH}" "$RUNNER_TEMP/libnode-lite.zip" "$RUNNER_TEMP/libv8.zip" \
             --repo "${GITHUB_REPOSITORY}" \
             --target "${BUILD_HEAD_SHA}" \
             --title "${title}" \
