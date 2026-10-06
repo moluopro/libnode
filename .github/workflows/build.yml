@@ -10,7 +10,7 @@ on:
       node_branch:
         description: Node.js branch, tag, or commit to build.
         required: false
-        default: v24.x
+        default: v24.21.0
       build_type:
         description: Build configuration to package.
         required: true
@@ -23,7 +23,7 @@ on:
 env:
   SOURCE_REPOSITORY: moluopro/nodejs
   SOURCE_REF: ${{ inputs.source_ref || 'main' }}
-  NODE_BRANCH: ${{ inputs.node_branch || 'v24.x' }}
+  NODE_BRANCH: ${{ inputs.node_branch || 'v24.21.0' }}
   BUILD_TYPE: ${{ inputs.build_type || 'Release' }}
   PACKAGE_ARTIFACT_NAME: ${{ inputs.build_type == 'Debug' && 'libnode-debug' || 'libnode' }}
   DEBUG_INFO: ${{ inputs.build_type == 'Debug' && 'embedded-full-windows-compact-non-windows' || 'stripped' }}
@@ -484,3 +484,11 @@ jobs:
           path: package-upload
           if-no-files-found: error
           retention-days: 2
+
+  profiles:
+    if: ${{ inputs.build_type != 'Debug' }}
+    uses: ./.github/workflows/build-profiles.yml
+    with:
+      source_ref: ${{ inputs.source_ref || 'main' }}
+      node_branch: ${{ inputs.node_branch || 'v24.21.0' }}
+    secrets: inherit

@@ -1,0 +1,434 @@
+name: Build libnode-lite and libv8
+'on':
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        type: string
+        default: main
+      node_branch:
+        type: string
+        default: v24.21.0
+  workflow_call:
+    inputs:
+      source_ref:
+        type: string
+        default: main
+      node_branch:
+        type: string
+        default: v24.21.0
+env:
+  SOURCE_REPOSITORY: moluopro/nodejs
+  SOURCE_REF: ${{ inputs.source_ref || 'main' }}
+  NODE_BRANCH: ${{ inputs.node_branch || 'v24.21.0' }}
+  BUILD_TYPE: Release
+  MACOSX_DEPLOYMENT_TARGET: '10.15'
+  IOS_DEPLOYMENT_TARGET: '16.0'
+  ANDROID_API: '28'
+  ANDROID_NDK_VERSION: 28.2.13676358
+  OHOS_SDK_ROOT: ${{ vars.OHOS_SDK_ROOT }}
+  OHOS_NATIVE_HOME: ${{ vars.OHOS_NATIVE_HOME }}
+  OHOS_SDK_URL: ${{ vars.OHOS_SDK_URL || 'https://repo.huaweicloud.com/openharmony/os/6.0-Release/L2-SDK-MAC-M1-PUBLIC.tar.gz'
+    }}
+run-name: Build Lite / V8 ${{ inputs.node_branch }}
+jobs:
+  macos:
+    name: macos / ${{ matrix.profile }}
+    runs-on: macos-26
+    steps:
+    - name: Checkout source
+      uses: actions/checkout@v6
+      with:
+        repository: ${{ env.SOURCE_REPOSITORY }}
+        ref: ${{ env.SOURCE_REF }}
+        token: ${{ secrets.MY_KEY || vars.MY_KEY }}
+        path: source
+        fetch-depth: 1
+    - name: Build
+      working-directory: source
+      run: |
+        JOBS="$(sysctl -n hw.ncpu)"
+        shell/build-mac.sh \
+          --branch "${NODE_BRANCH}" \
+          --deployment-target "${MACOSX_DEPLOYMENT_TARGET}" \
+          --dest-cpu arm64 \
+          --jobs "${JOBS}"
+    - name: Test macOS embedding with force-load
+      working-directory: source
+      run: |
+        SMOKE_SOURCE=test/embed-smoke.cc
+        SMOKE_FLAGS=-DLIBNODE_LITE=1
+        LIBRARY_NAME=libnode
+        if [ "$LIBRARY_PROFILE" = libv8 ]; then SMOKE_SOURCE=test/v8-smoke.cc; SMOKE_FLAGS=; LIBRARY_NAME=libv8; fi
+        clang++ \
+          -std=c++20 \
+          -arch arm64 \
+          -mmacosx-version-min="${MACOSX_DEPLOYMENT_TARGET}" \
+          "$SMOKE_SOURCE" $SMOKE_FLAGS \
+          -I build/macos/arm64/include \
+          -Wl,-force_load,"${PWD}/build/macos/arm64/${LIBRARY_NAME}.a" \
+          -framework CoreFoundation \
+          -framework Security \
+          -o "${RUNNER_TEMP}/libnode-embed-smoke"
+        "${RUNNER_TEMP}/libnode-embed-smoke"
+    - name: Upload macOS package
+      uses: actions/upload-artifact@v6
+      with:
+        name: ${{ matrix.profile }}-macos
+        path: source/build/macos
+        if-no-files-found: error
+        retention-days: 2
+    strategy:
+      fail-fast: false
+      matrix:
+        profile:
+        - libnode-lite
+        - libv8
+    env:
+      LIBRARY_PROFILE: ${{ matrix.profile }}
+  ios:
+    name: ios / ${{ matrix.profile }}
+    runs-on: macos-26
+    steps:
+    - name: Checkout source
+      uses: actions/checkout@v6
+      with:
+        repository: ${{ env.SOURCE_REPOSITORY }}
+        ref: ${{ env.SOURCE_REF }}
+        token: ${{ secrets.MY_KEY || vars.MY_KEY }}
+        path: source
+        fetch-depth: 1
+    - name: Build
+      working-directory: source
+      run: |
+        JOBS="$(sysctl -n hw.ncpu)"
+        shell/build-ios.sh \
+          --branch "${NODE_BRANCH}" \
+          --sdk iphoneos \
+          --deployment-target "${IOS_DEPLOYMENT_TARGET}" \
+          --dest-cpu arm64 \
+          --jobs "${JOBS}"
+    - name: Upload iOS package
+      uses: actions/upload-artifact@v6
+      with:
+        name: ${{ matrix.profile }}-ios
+        path: source/build/ios
+        if-no-files-found: error
+        retention-days: 2
+    strategy:
+      fail-fast: false
+      matrix:
+        profile:
+        - libnode-lite
+        - libv8
+    env:
+      LIBRARY_PROFILE: ${{ matrix.profile }}
+  android:
+    name: android / ${{ matrix.profile }}
+    runs-on: macos-26
+    steps:
+    - name: Checkout source
+      uses: actions/checkout@v6
+      with:
+        repository: ${{ env.SOURCE_REPOSITORY }}
+        ref: ${{ env.SOURCE_REF }}
+        token: ${{ secrets.MY_KEY || vars.MY_KEY }}
+        path: source
+        fetch-depth: 1
+    - name: Install Android NDK
+      run: |
+        SDKMANAGER="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
+        if [ ! -x "${SDKMANAGER}" ]; then
+          SDKMANAGER="$(command -v sdkmanager)"
+        fi
+        yes | "${SDKMANAGER}" --licenses
+        yes | "${SDKMANAGER}" --install "ndk;${ANDROID_NDK_VERSION}"
+    - name: Build
+      working-directory: source
+      run: |
+        JOBS="$(sysctl -n hw.ncpu)"
+        shell/build-android.sh \
+          --branch "${NODE_BRANCH}" \
+          --sdk "${ANDROID_HOME}" \
+          --ndk "${ANDROID_HOME}/ndk/${ANDROID_NDK_VERSION}" \
+          --api "${ANDROID_API}" \
+          --dest-cpu arm64 \
+          --jobs "${JOBS}"
+    - name: Test Android whole-archive link
+      working-directory: source
+      run: |
+        LIBRARY_NAME=libnode
+        if [ "$LIBRARY_PROFILE" = libv8 ]; then LIBRARY_NAME=libv8; fi
+        ANDROID_CXX="$(find \
+          "${ANDROID_HOME}/ndk/${ANDROID_NDK_VERSION}/toolchains/llvm/prebuilt" \
+          -path "*/bin/aarch64-linux-android${ANDROID_API}-clang++" \
+          -type f \
+          -print \
+          -quit)"
+        if [ -z "${ANDROID_CXX}" ] || [ ! -x "${ANDROID_CXX}" ]; then
+          echo "Android NDK compiler was not found." >&2
+          exit 1
+        fi
+        printf 'int main(void) { return 0; }\n' |
+          "${ANDROID_CXX}" \
+            -x c++ - \
+            -x none \
+            -Wl,--whole-archive \
+            "${PWD}/build/android/arm64/${LIBRARY_NAME}.a" \
+            -Wl,--no-whole-archive \
+            -llog \
+            -ldl \
+            -lm \
+            -pthread \
+            -o "${RUNNER_TEMP}/libnode-android-wholearchive"
+    - name: Upload Android package
+      uses: actions/upload-artifact@v6
+      with:
+        name: ${{ matrix.profile }}-android
+        path: source/build/android
+        if-no-files-found: error
+        retention-days: 2
+    strategy:
+      fail-fast: false
+      matrix:
+        profile:
+        - libnode-lite
+        - libv8
+    env:
+      LIBRARY_PROFILE: ${{ matrix.profile }}
+  ohos:
+    name: ohos / ${{ matrix.profile }}
+    runs-on: macos-26
+    steps:
+    - name: Checkout source
+      uses: actions/checkout@v6
+      with:
+        repository: ${{ env.SOURCE_REPOSITORY }}
+        ref: ${{ env.SOURCE_REF }}
+        token: ${{ secrets.MY_KEY || vars.MY_KEY }}
+        path: source
+        fetch-depth: 1
+    - name: Install HarmonyOS SDK
+      run: |
+        if [ -n "${OHOS_NATIVE_HOME}" ] && [ -x "${OHOS_NATIVE_HOME}/llvm/bin/aarch64-unknown-linux-ohos-clang" ]; then
+          echo "Using configured HarmonyOS Native SDK: ${OHOS_NATIVE_HOME}"
+          exit 0
+        fi
+
+        SDK_ROOT="${RUNNER_TEMP}/ohos-sdk"
+        SDK_ARCHIVE="${RUNNER_TEMP}/ohos-sdk.tar.gz"
+        mkdir -p "${SDK_ROOT}"
+        curl --fail --location --retry 3 --retry-delay 5 --output "${SDK_ARCHIVE}" "${OHOS_SDK_URL}"
+        tar -xzf "${SDK_ARCHIVE}" -C "${SDK_ROOT}"
+        while IFS= read -r package_file; do
+          package_dir="$(dirname "${package_file}")"
+          echo "Extracting HarmonyOS SDK package: ${package_file}"
+          unzip -q -o "${package_file}" -d "${package_dir}"
+        done < <(find "${SDK_ROOT}" -type f -name '*.zip' | sort)
+
+        CLANG_PATH="$(find "${SDK_ROOT}" -path '*/native/llvm/bin/aarch64-unknown-linux-ohos-clang' -print -quit)"
+        if [ -z "${CLANG_PATH}" ]; then
+          echo "HarmonyOS Native SDK was not found in downloaded SDK." >&2
+          find "${SDK_ROOT}" -maxdepth 7 \( -type d -o -type f \) | sort >&2
+          exit 1
+        fi
+
+        NATIVE_HOME="$(cd "$(dirname "${CLANG_PATH}")/../.." && pwd)"
+        echo "OHOS_NATIVE_HOME=${NATIVE_HOME}" >> "${GITHUB_ENV}"
+        echo "Installed HarmonyOS Native SDK: ${NATIVE_HOME}"
+    - name: Build
+      working-directory: source
+      run: |
+        JOBS="$(sysctl -n hw.ncpu)"
+        shell/build-ohos.sh \
+          --branch "${NODE_BRANCH}" \
+          --dest-cpu arm64 \
+          --jobs "${JOBS}"
+    - name: Upload HarmonyOS package
+      uses: actions/upload-artifact@v6
+      with:
+        name: ${{ matrix.profile }}-ohos
+        path: source/build/ohos
+        if-no-files-found: error
+        retention-days: 2
+    strategy:
+      fail-fast: false
+      matrix:
+        profile:
+        - libnode-lite
+        - libv8
+    env:
+      LIBRARY_PROFILE: ${{ matrix.profile }}
+  linux:
+    name: linux / ${{ matrix.profile }}
+    runs-on: ubuntu-22.04
+    steps:
+    - name: Checkout source
+      uses: actions/checkout@v6
+      with:
+        repository: ${{ env.SOURCE_REPOSITORY }}
+        ref: ${{ env.SOURCE_REF }}
+        token: ${{ secrets.MY_KEY || vars.MY_KEY }}
+        path: source
+        fetch-depth: 1
+    - name: Install build dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gcc-12 g++-12 make python3 python3-pip
+    - name: Build
+      working-directory: source
+      run: |
+        JOBS="$(nproc)"
+        export CC=gcc-12
+        export CXX=g++-12
+        shell/build-linux.sh \
+          --branch "${NODE_BRANCH}" \
+          --dest-cpu x64 \
+          --jobs "${JOBS}"
+    - name: Test Linux embedding with whole-archive
+      working-directory: source
+      run: |
+        SMOKE_SOURCE=test/embed-smoke.cc
+        SMOKE_FLAGS=-DLIBNODE_LITE=1
+        LIBRARY_NAME=libnode
+        if [ "$LIBRARY_PROFILE" = libv8 ]; then SMOKE_SOURCE=test/v8-smoke.cc; SMOKE_FLAGS=; LIBRARY_NAME=libv8; fi
+        g++-12 \
+          -std=c++20 \
+          "$SMOKE_SOURCE" $SMOKE_FLAGS \
+          -I build/linux/x64/include \
+          -Wl,--whole-archive \
+          "${PWD}/build/linux/x64/${LIBRARY_NAME}.a" \
+          -Wl,--no-whole-archive \
+          -ldl \
+          -lrt \
+          -pthread \
+          -o "${RUNNER_TEMP}/libnode-embed-smoke"
+        "${RUNNER_TEMP}/libnode-embed-smoke"
+    - name: Upload Linux package
+      uses: actions/upload-artifact@v6
+      with:
+        name: ${{ matrix.profile }}-linux
+        path: source/build/linux
+        if-no-files-found: error
+        retention-days: 2
+    strategy:
+      fail-fast: false
+      matrix:
+        profile:
+        - libnode-lite
+        - libv8
+    env:
+      LIBRARY_PROFILE: ${{ matrix.profile }}
+  windows:
+    name: windows / ${{ matrix.profile }}
+    runs-on: windows-2022
+    steps:
+    - name: Checkout source
+      uses: actions/checkout@v6
+      with:
+        repository: ${{ env.SOURCE_REPOSITORY }}
+        ref: ${{ env.SOURCE_REF }}
+        token: ${{ secrets.MY_KEY || vars.MY_KEY }}
+        path: source
+        fetch-depth: 1
+    - name: Build
+      working-directory: source
+      shell: pwsh
+      run: |
+        $Jobs = [Environment]::ProcessorCount
+        ./shell/build-windows.ps1 `
+          -Branch "${env:NODE_BRANCH}" `
+          -DestCpu x64 `
+          -Jobs $Jobs
+    - name: Test packaged Windows CMake target
+      working-directory: source
+      shell: pwsh
+      run: |
+        $SmokeBuild = Join-Path $env:RUNNER_TEMP "libnode-cmake-smoke"
+        $LibraryName = if ($env:LIBRARY_PROFILE -eq "libv8") { "libv8" } else { "libnode" }
+        $CMakeFile = Join-Path $PWD "build/windows/x64/$LibraryName.cmake"
+        cmake `
+          -S test/windows-cmake-smoke `
+          -B $SmokeBuild `
+          -G "Visual Studio 17 2022" `
+          -A x64 `
+          "-DLIBNODE_CMAKE_FILE=$CMakeFile" `
+            "-DLIBRARY_PROFILE=$env:LIBRARY_PROFILE" `
+          "-DLIBNODE_EXPECT_DEBUG_SOURCE=$($env:BUILD_TYPE -eq 'Debug')"
+        if ($LASTEXITCODE -ne 0) { throw "CMake configure failed" }
+        cmake --build $SmokeBuild --config $env:BUILD_TYPE
+        if ($LASTEXITCODE -ne 0) { throw "CMake build failed" }
+        & (Join-Path $SmokeBuild "$env:BUILD_TYPE/libnode_windows_cmake_smoke.exe")
+        if ($LASTEXITCODE -ne 0) { throw "CMake smoke executable failed" }
+        if ($env:BUILD_TYPE -eq "Debug") {
+          $ProjectFile = Join-Path $SmokeBuild "libnode_windows_cmake_smoke.vcxproj"
+          if (-not (Select-String -Path $ProjectFile -SimpleMatch "<SourcePath>" -Quiet)) {
+            throw "Generated CMake project does not contain the libnode debug source path"
+          }
+        }
+    - name: Remove Windows symbols
+      if: ${{ env.BUILD_TYPE == 'Release' }}
+      working-directory: source
+      shell: pwsh
+      run: Remove-Item -Path build/windows/x64/symbols -Recurse -Force
+    - name: Upload Windows package
+      uses: actions/upload-artifact@v6
+      with:
+        name: ${{ matrix.profile }}-windows
+        path: source/build/windows
+        if-no-files-found: error
+        retention-days: 2
+    strategy:
+      fail-fast: false
+      matrix:
+        profile:
+        - libnode-lite
+        - libv8
+    env:
+      LIBRARY_PROFILE: ${{ matrix.profile }}
+  package:
+    name: Package
+    if: ${{ always() && needs.macos.result == 'success' && needs.ios.result == 'success' && needs.android.result
+      == 'success' && needs.ohos.result == 'success' && needs.linux.result == 'success' && needs.windows.result
+      == 'success' }}
+    runs-on: ubuntu-latest
+    needs:
+    - macos
+    - ios
+    - android
+    - ohos
+    - linux
+    - windows
+    steps:
+    - name: Checkout source
+      uses: actions/checkout@v6
+      with:
+        repository: ${{ env.SOURCE_REPOSITORY }}
+        ref: ${{ env.SOURCE_REF }}
+        token: ${{ secrets.MY_KEY || vars.MY_KEY }}
+        path: source
+        fetch-depth: 1
+    - name: Download platform packages
+      uses: actions/download-artifact@v7
+      with:
+        pattern: ${{ matrix.profile }}-*
+        path: package-artifacts
+    - name: Collect and validate profile
+      run: |
+        python3 source/shell/collect-library-profile.py package-artifacts package-upload "$LIBRARY_PROFILE" "$NODE_BRANCH" "$(git -C source rev-parse HEAD)" "$GITHUB_SHA"
+    - name: Upload complete package
+      uses: actions/upload-artifact@v6
+      with:
+        name: ${{ matrix.profile }}
+        path: package-upload
+        if-no-files-found: error
+        retention-days: 7
+    strategy:
+      fail-fast: false
+      matrix:
+        profile:
+        - libnode-lite
+        - libv8
+    env:
+      LIBRARY_PROFILE: ${{ matrix.profile }}
+permissions:
+  contents: read
