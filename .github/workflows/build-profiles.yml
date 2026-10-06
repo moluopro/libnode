@@ -385,11 +385,17 @@ jobs:
         - libv8
     env:
       LIBRARY_PROFILE: ${{ matrix.profile }}
+  web:
+    uses: ./.github/workflows/build-web.yml
+    with:
+      source_ref: ${{ inputs.source_ref || 'main' }}
+      node_branch: ${{ inputs.node_branch || 'v24.21.0' }}
+    secrets: inherit
   package:
     name: Package
     if: ${{ always() && needs.macos.result == 'success' && needs.ios.result == 'success' && needs.android.result
       == 'success' && needs.ohos.result == 'success' && needs.linux.result == 'success' && needs.windows.result
-      == 'success' }}
+      == 'success' && needs.web.result == 'success' }}
     runs-on: ubuntu-latest
     needs:
     - macos
@@ -398,6 +404,7 @@ jobs:
     - ohos
     - linux
     - windows
+    - web
     steps:
     - name: Checkout source
       uses: actions/checkout@v6

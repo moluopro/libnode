@@ -1,0 +1,88 @@
+name: Build Web libnode-lite and libv8
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Exact packaging source branch, tag, or commit
+        type: string
+        default: main
+      node_branch:
+        type: string
+        default: v24.21.0
+  workflow_call:
+    inputs:
+      source_ref:
+        type: string
+        default: main
+      node_branch:
+        type: string
+        default: v24.21.0
+
+permissions:
+  contents: read
+
+env:
+  SOURCE_REPOSITORY: moluopro/nodejs
+  SOURCE_REF: ${{ inputs.source_ref || 'main' }}
+  NODE_BRANCH: ${{ inputs.node_branch || 'v24.21.0' }}
+  EMSCRIPTEN_VERSION: 5.0.7
+
+jobs:
+  web:
+    name: wasm32 / Lite and V8
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout packaging source
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ env.SOURCE_REPOSITORY }}
+          ref: ${{ env.SOURCE_REF }}
+          token: ${{ secrets.MY_KEY || vars.MY_KEY }}
+          path: source
+          fetch-depth: 1
+      - name: Setup build host Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+      - name: Setup Emscripten
+        shell: bash
+        run: |
+          git clone --depth 1 https://github.com/emscripten-core/emsdk "$RUNNER_TEMP/emsdk"
+          "$RUNNER_TEMP/emsdk/emsdk" install "$EMSCRIPTEN_VERSION"
+          "$RUNNER_TEMP/emsdk/emsdk" activate "$EMSCRIPTEN_VERSION"
+      - name: Build both wasm32 archives
+        shell: bash
+        working-directory: source
+        run: |
+          source "$RUNNER_TEMP/emsdk/emsdk_env.sh"
+          shell/build-web.sh --branch "$NODE_BRANCH" --jobs "$(nproc)"
+      - name: Test packaged archives in Chromium
+        shell: bash
+        working-directory: source
+        run: |
+          source "$RUNNER_TEMP/emsdk/emsdk_env.sh"
+          python3 -m pip install playwright
+          python3 -m playwright install --with-deps chromium
+          python3 test/run-web-smoke.py --packages build/web --output build/web-smoke
+      - name: Upload Lite Web platform
+        uses: actions/upload-artifact@v6
+        with:
+          name: libnode-lite-web
+          path: source/build/web/libnode-lite/libnode/web
+          if-no-files-found: error
+          retention-days: 7
+      - name: Upload V8 Web platform
+        uses: actions/upload-artifact@v6
+        with:
+          name: libv8-web
+          path: source/build/web/libv8/libv8/web
+          if-no-files-found: error
+          retention-days: 7
+      - name: Upload both Web profiles
+        uses: actions/upload-artifact@v6
+        with:
+          name: libnode-web-profiles
+          path: source/build/web
+          if-no-files-found: error
+          retention-days: 7
