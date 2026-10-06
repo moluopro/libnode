@@ -9,6 +9,9 @@ on:
       debug_build_run_id:
         description: Successful Debug Build libnode run id to package.
         required: true
+      web_build_run_id:
+        description: Separate successful Web build run, required when the Release run predates Web support.
+        required: false
       tag:
         description: Release tag to create.
         required: true
@@ -52,6 +55,7 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       BUILD_RUN_ID: ${{ inputs.build_run_id }}
       DEBUG_BUILD_RUN_ID: ${{ inputs.debug_build_run_id }}
+      WEB_BUILD_RUN_ID: ${{ inputs.web_build_run_id }}
       TAG: ${{ inputs.tag }}
       RELEASE_NAME: ${{ inputs.release_name }}
       ARTIFACT_NAME: ${{ inputs.artifact_name }}
@@ -351,6 +355,41 @@ jobs:
           unzip -Z1 "${debug_asset_path}" | sed -n '1,40p'
           test "$(unzip -Z1 "${debug_asset_path}" | sed -n '1p')" = "libnode/"
 
+      - name: Validate and download separate Web build
+        if: ${{ inputs.web_build_run_id != '' }}
+        run: |
+          set -euo pipefail
+          info="$(gh run view "$WEB_BUILD_RUN_ID" --repo "$GITHUB_REPOSITORY" --json status,conclusion,headSha,url,workflowName)"
+          test "$(jq -r '.status' <<< "$info")" = completed
+          test "$(jq -r '.conclusion' <<< "$info")" = success
+          test "$(jq -r '.workflowName' <<< "$info")" = 'Build Web libnode-lite and libv8'
+          web_head="$(jq -r '.headSha' <<< "$info")"
+          gh run download "$WEB_BUILD_RUN_ID" --repo "$GITHUB_REPOSITORY" --name libnode-web-profiles --dir package-web
+          lite_metadata=package-web/libnode-lite/libnode/web/wasm32/LIBRARY-PROFILE.json
+          v8_metadata=package-web/libv8/libv8/web/wasm32/LIBRARY-PROFILE.json
+          for metadata in "$lite_metadata" "$v8_metadata"; do
+            test "$(jq -er '.workflow_commit' "$metadata")" = "$web_head"
+            test "$(jq -er '.node_commit' "$metadata")" = "$NODE_COMMIT"
+          done
+          web_source="$(jq -er '.source_commit' "$lite_metadata")"
+          test "$(jq -er '.source_commit' "$v8_metadata")" = "$web_source"
+          [[ "$web_source" =~ ^[0-9a-f]{40}$ ]]
+          {
+            echo "WEB_BUILD_HEAD_SHA=$web_head"
+            echo "WEB_BUILD_SOURCE_COMMIT=$web_source"
+            echo "WEB_BUILD_RUN_URL=$(jq -r '.url' <<< "$info")"
+          } >> "$GITHUB_ENV"
+
+      - name: Checkout Web packaging helper
+        if: ${{ inputs.web_build_run_id != '' }}
+        uses: actions/checkout@v6
+        with:
+          repository: moluopro/nodejs
+          ref: ${{ env.WEB_BUILD_SOURCE_COMMIT }}
+          token: ${{ secrets.MY_KEY || vars.MY_KEY }}
+          path: web-tools
+          fetch-depth: 1
+
       - name: Download and validate Lite and V8 packages
         run: |
           set -euo pipefail
@@ -364,6 +403,17 @@ jobs:
             test "$(jq -er '.node_commit' "$metadata")" = "$NODE_COMMIT"
             test "$(jq -er '.source_commit' "$metadata")" = "$SOURCE_COMMIT"
             test "$(jq -er '.workflow_commit' "$metadata")" = "$BUILD_HEAD_SHA"
+            if [ "$(jq -r '.web_export' "$metadata")" != true ]; then
+              if [ -z "$WEB_BUILD_RUN_ID" ]; then
+                echo "$profile is missing Web targets; provide a successful Web build run." >&2
+                exit 1
+              fi
+              python3 web-tools/shell/merge-web-profiles.py \
+                "package-$profile/$root" "package-web/$profile/$root" \
+                "$profile" "$NODE_COMMIT" "$WEB_BUILD_HEAD_SHA"
+            fi
+            test -s "package-$profile/$root/web/wasm32/$root.a"
+            test -f "package-$profile/$root/web/wasm32/include/v8.h"
             (cd "package-$profile" && zip -7qry "$RUNNER_TEMP/$profile.zip" "$root")
             test "$(stat -c '%s' "$RUNNER_TEMP/$profile.zip")" -lt 2147483648
           done
@@ -417,7 +467,10 @@ jobs:
           Debug platforms: Android, iOS, Linux, macOS, and Windows. HarmonyOS is Release-only.
           libnode-lite.zip retains Node Environment and N-API compatibility with ICU, OpenSSL, Inspector, SQLite and the V8 WebAssembly API disabled, with V8 Lite defaulting to jitless execution.
           libv8.zip contains standalone V8 Lite and its dependencies without Node or libuv.
-          The two new packages currently contain native targets only; wasm32 Web exports are not available.
+          libnode-lite.zip and libv8.zip include pthread-enabled wasm32 Web targets built with Emscripten 5.0.7. V8 uses the ARM simulator and jitless mode; the JavaScript WebAssembly API remains disabled.
+          Web build run: ${WEB_BUILD_RUN_URL:-${BUILD_RUN_URL}}
+          Web packaging source: ${WEB_BUILD_SOURCE_COMMIT:-${SOURCE_COMMIT}}
+          When Web was built separately, package metadata retains the actual native and Web source/workflow commits for each target.
 
           Asset SHA256:
 
