@@ -424,6 +424,8 @@ jobs:
 
       - name: Remove existing release
         if: ${{ inputs.replace_existing }}
+        env:
+          GH_TOKEN: ${{ secrets.MY_KEY || vars.MY_KEY || github.token }}
         run: |
           set -euo pipefail
 
@@ -452,6 +454,10 @@ jobs:
           fi
 
       - name: Create GitHub release
+        # A release can tag an earlier build workflow commit. Use the repository
+        # token for this mutation; the integration token may reject that tag.
+        env:
+          GH_TOKEN: ${{ secrets.MY_KEY || vars.MY_KEY || github.token }}
         run: |
           set -euo pipefail
 
