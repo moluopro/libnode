@@ -435,6 +435,24 @@ jobs:
             fi
             test -s "package-$profile/$root/web/wasm32/$root.a"
             test -f "package-$profile/$root/web/wasm32/include/v8.h"
+            while IFS= read -r platform_metadata; do
+              jq -e --arg profile "$profile" '
+                .profile == $profile and
+                .variables.v8_jitless == 1 and
+                .variables.v8_enable_turbofan == 0 and
+                .variables.v8_enable_sparkplug == 0 and
+                .variables.v8_enable_maglev == 0 and
+                .variables.v8_enable_inspector == 0 and
+                .variables.v8_enable_object_print == 0 and
+                .variables.v8_enable_gdbjit == 0 and
+                .variables.v8_enable_i18n_support == 0 and
+                .variables.v8_enable_webassembly == 0 and
+                .variables.node_use_openssl == "false" and
+                .variables.node_use_wasi == "false" and
+                .variables.node_use_http2 == "false" and
+                .variables.single_executable_application == "false"
+              ' "$platform_metadata" >/dev/null
+            done < <(find "package-$profile/$root" -name LIBRARY-PROFILE.json -type f)
             (cd "package-$profile" && zip -7qry "$RUNNER_TEMP/$profile.zip" "$root")
             test "$(stat -c '%s' "$RUNNER_TEMP/$profile.zip")" -lt 2147483648
           done
