@@ -9,6 +9,9 @@ on:
       debug_build_run_id:
         description: Successful Debug Build libnode run id to package.
         required: true
+      profile_build_run_id:
+        description: Successful Build libnode-lite and libv8 run id.
+        required: false
       web_build_run_id:
         description: Separate successful Web build run, required when the Release run predates Web support.
         required: false
@@ -55,6 +58,7 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       BUILD_RUN_ID: ${{ inputs.build_run_id }}
       DEBUG_BUILD_RUN_ID: ${{ inputs.debug_build_run_id }}
+      PROFILE_BUILD_RUN_ID: ${{ inputs.profile_build_run_id }}
       WEB_BUILD_RUN_ID: ${{ inputs.web_build_run_id }}
       TAG: ${{ inputs.tag }}
       RELEASE_NAME: ${{ inputs.release_name }}
@@ -393,16 +397,33 @@ jobs:
       - name: Download and validate Lite and V8 packages
         run: |
           set -euo pipefail
+          profile_run_id="${PROFILE_BUILD_RUN_ID:-${BUILD_RUN_ID}}"
+          profile_head="$BUILD_HEAD_SHA"
+          profile_source="$SOURCE_COMMIT"
+          profile_run_url="$BUILD_RUN_URL"
+          if [ -n "$PROFILE_BUILD_RUN_ID" ]; then
+            info="$(gh run view "$profile_run_id" --repo "$GITHUB_REPOSITORY" --json status,conclusion,headSha,url,workflowName)"
+            test "$(jq -r '.status' <<< "$info")" = completed
+            test "$(jq -r '.conclusion' <<< "$info")" = success
+            test "$(jq -r '.workflowName' <<< "$info")" = 'Build libnode-lite and libv8'
+            profile_head="$(jq -r '.headSha' <<< "$info")"
+            profile_run_url="$(jq -r '.url' <<< "$info")"
+            profile_source=''
+          fi
           for profile in libnode-lite libv8; do
             root=libnode
             if [ "$profile" = libv8 ]; then root=libv8; fi
-            gh run download "$BUILD_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "$profile" --dir "package-$profile"
+            gh run download "$profile_run_id" --repo "$GITHUB_REPOSITORY" --name "$profile" --dir "package-$profile"
             metadata="package-$profile/$root/BUILD-METADATA.json"
             test "$(jq -er '.profile' "$metadata")" = "$profile"
             test "$(jq -er '.node_ref' "$metadata")" = "$NODE_REF"
             test "$(jq -er '.node_commit' "$metadata")" = "$NODE_COMMIT"
-            test "$(jq -er '.source_commit' "$metadata")" = "$SOURCE_COMMIT"
-            test "$(jq -er '.workflow_commit' "$metadata")" = "$BUILD_HEAD_SHA"
+            if [ -z "$profile_source" ]; then
+              profile_source="$(jq -er '.source_commit' "$metadata")"
+              [[ "$profile_source" =~ ^[0-9a-f]{40}$ ]]
+            fi
+            test "$(jq -er '.source_commit' "$metadata")" = "$profile_source"
+            test "$(jq -er '.workflow_commit' "$metadata")" = "$profile_head"
             if [ "$(jq -r '.web_export' "$metadata")" != true ]; then
               if [ -z "$WEB_BUILD_RUN_ID" ]; then
                 echo "$profile is missing Web targets; provide a successful Web build run." >&2
@@ -418,6 +439,9 @@ jobs:
             test "$(stat -c '%s' "$RUNNER_TEMP/$profile.zip")" -lt 2147483648
           done
           {
+            echo "PROFILE_BUILD_HEAD_SHA=$profile_head"
+            echo "PROFILE_BUILD_SOURCE_COMMIT=$profile_source"
+            echo "PROFILE_BUILD_RUN_URL=$profile_run_url"
             echo "LITE_ASSET_SHA256=$(sha256sum "$RUNNER_TEMP/libnode-lite.zip" | awk '{print $1}')"
             echo "V8_ASSET_SHA256=$(sha256sum "$RUNNER_TEMP/libv8.zip" | awk '{print $1}')"
           } >> "$GITHUB_ENV"
@@ -471,8 +495,10 @@ jobs:
           Node.js source: nodejs/node@${NODE_COMMIT} (${NODE_REF})
           Debug information: embedded full /Z7 on Windows; compact -g1 DWARF on non-Windows.
           Debug platforms: Android, iOS, Linux, macOS, and Windows. HarmonyOS is Release-only.
-          libnode-lite.zip retains Node Environment and N-API compatibility with ICU, OpenSSL, Inspector, SQLite and the V8 WebAssembly API disabled, with V8 Lite defaulting to jitless execution.
+          libnode-lite.zip retains Node Environment and N-API compatibility with ICU, OpenSSL, Inspector, SQLite, WASI, HTTP/2 and the V8 WebAssembly API disabled. Maglev, TurboFan, Sparkplug and snapshot-generation libraries are excluded from the runtime package.
           libv8.zip contains standalone V8 Lite and its dependencies without Node or libuv.
+          Lite / V8 build run: ${PROFILE_BUILD_RUN_URL}
+          Lite / V8 packaging source: ${PROFILE_BUILD_SOURCE_COMMIT}
           libnode-lite.zip and libv8.zip include pthread-enabled wasm32 Web targets built with Emscripten 5.0.7. V8 uses the ARM simulator and jitless mode; the JavaScript WebAssembly API remains disabled.
           Web build run: ${WEB_BUILD_RUN_URL:-${BUILD_RUN_URL}}
           Web packaging source: ${WEB_BUILD_SOURCE_COMMIT:-${SOURCE_COMMIT}}
@@ -497,6 +523,6 @@ jobs:
 
           gh release create "${TAG}" "${ASSET_PATH}" "${DEBUG_ASSET_PATH}" "$RUNNER_TEMP/libnode-lite.zip" "$RUNNER_TEMP/libv8.zip" \
             --repo "${GITHUB_REPOSITORY}" \
-            --target "${BUILD_HEAD_SHA}" \
+            --target "${PROFILE_BUILD_HEAD_SHA}" \
             --title "${title}" \
             --notes-file "${notes_file}"
