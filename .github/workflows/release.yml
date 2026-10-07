@@ -529,8 +529,8 @@ jobs:
           Lite / V8 build run: ${PROFILE_BUILD_RUN_URL}
           Lite / V8 packaging source: ${PROFILE_BUILD_SOURCE_COMMIT}
           libnode-lite.zip and libv8.zip include pthread-enabled wasm32 Web targets built with Emscripten 5.0.7. V8 uses the ARM simulator with JIT enabled; the JavaScript WebAssembly API remains disabled.
-          Web build run: ${WEB_BUILD_RUN_URL:-${BUILD_RUN_URL}}
-          Web packaging source: ${WEB_BUILD_SOURCE_COMMIT:-${SOURCE_COMMIT}}
+          Web build run: ${WEB_BUILD_RUN_URL:-${PROFILE_BUILD_RUN_URL}}
+          Web packaging source: ${WEB_BUILD_SOURCE_COMMIT:-${PROFILE_BUILD_SOURCE_COMMIT}}
           When Web was built separately, package metadata retains the actual native and Web source/workflow commits for each target.
 
           Asset SHA256:
