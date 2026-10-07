@@ -438,10 +438,21 @@ jobs:
             while IFS= read -r platform_metadata; do
               jq -e --arg profile "$profile" '
                 .profile == $profile and
-                .variables.v8_jitless == 1 and
-                .variables.v8_enable_turbofan == 0 and
-                .variables.v8_enable_sparkplug == 0 and
-                .variables.v8_enable_maglev == 0 and
+                (.variables.node_lite_platform as $platform |
+                  (["mac", "ios", "android", "openharmony", "linux", "win"] | index($platform)) != null and
+                  (if $platform == "ios" or $platform == "openharmony" then
+                    .variables.v8_jitless == 1 and
+                    .variables.v8_enable_lite_mode == 1 and
+                    .variables.v8_enable_turbofan == 0 and
+                    .variables.v8_enable_sparkplug == 0 and
+                    .variables.v8_enable_maglev == 0
+                  else
+                    .variables.v8_jitless == 0 and
+                    .variables.v8_enable_lite_mode == 0 and
+                    .variables.v8_enable_turbofan == 1 and
+                    .variables.v8_enable_sparkplug == 1 and
+                    .variables.v8_enable_maglev == (if (.variables.target_arch as $arch | ["x64", "arm", "arm64"] | index($arch)) != null then 1 else 0 end)
+                  end)) and
                 .variables.v8_enable_inspector == 0 and
                 .variables.v8_enable_object_print == 0 and
                 .variables.v8_enable_gdbjit == 0 and
@@ -513,11 +524,11 @@ jobs:
           Node.js source: nodejs/node@${NODE_COMMIT} (${NODE_REF})
           Debug information: embedded full /Z7 on Windows; compact -g1 DWARF on non-Windows.
           Debug platforms: Android, iOS, Linux, macOS, and Windows. HarmonyOS is Release-only.
-          libnode-lite.zip retains Node Environment and N-API compatibility with ICU, OpenSSL, Inspector, SQLite, WASI, HTTP/2 and the V8 WebAssembly API disabled. Maglev, TurboFan, Sparkplug and snapshot-generation libraries are excluded from the runtime package.
-          libv8.zip contains standalone V8 Lite and its dependencies without Node or libuv.
+          libnode-lite.zip retains Node Environment and N-API compatibility with ICU, OpenSSL, Inspector, SQLite, WASI, HTTP/2 and the V8 WebAssembly API disabled. Builtin-generation libraries are excluded from runtime packages. JIT remains enabled except on iOS and HarmonyOS.
+          libv8.zip contains standalone V8 and its dependencies without Node or libuv.
           Lite / V8 build run: ${PROFILE_BUILD_RUN_URL}
           Lite / V8 packaging source: ${PROFILE_BUILD_SOURCE_COMMIT}
-          libnode-lite.zip and libv8.zip include pthread-enabled wasm32 Web targets built with Emscripten 5.0.7. V8 uses the ARM simulator and jitless mode; the JavaScript WebAssembly API remains disabled.
+          libnode-lite.zip and libv8.zip include pthread-enabled wasm32 Web targets built with Emscripten 5.0.7. V8 uses the ARM simulator with JIT enabled; the JavaScript WebAssembly API remains disabled.
           Web build run: ${WEB_BUILD_RUN_URL:-${BUILD_RUN_URL}}
           Web packaging source: ${WEB_BUILD_SOURCE_COMMIT:-${SOURCE_COMMIT}}
           When Web was built separately, package metadata retains the actual native and Web source/workflow commits for each target.
